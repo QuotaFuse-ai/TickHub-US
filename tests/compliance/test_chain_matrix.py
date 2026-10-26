@@ -194,6 +194,7 @@ def test_cached_result_is_rechecked_against_current_policy(
     providers = available_providers()
 
     monkeypatch.setenv("POLYGON_API_KEY", "test-key")
+    monkeypatch.setenv("TICKHUB_US_POLYGON_COMMERCIAL_BASIS", "true")
     get_settings.cache_clear()
     try:
         monkeypatch.setattr(providers["polygon"], "fetch", lambda *_a, **_k: {"bars": [1]})

@@ -4,8 +4,11 @@
 - Tier X：任何调用都拒绝（不提供适配器）
 - commercial_use=True：
     * S → 放行
-    * B → 拒绝；仅当 TICKHUB_US_ALLOW_TIER_B_COMMERCIAL=true 时放行并附警告
-    * C / D → 拒绝
+    * B → 拒绝；两种显式放行方式：
+        - TICKHUB_US_ALLOW_TIER_B_SOURCES=a,b：只放行列出的源（粒度控制，推荐）
+        - TICKHUB_US_ALLOW_TIER_B_COMMERCIAL=true：放行全部 Tier B 源（粗粒度）
+      白名单一旦非空即为权威口径，未列出的源即使全局开关打开也会被拒绝。
+    * C / D → 拒绝（声明了 commercial_basis_env 的源按订阅许可另行判定）
 - commercial_use=False：S / B / C / D 均可调用；D 级附“仅个人研究”警告
 """
 
@@ -20,6 +23,12 @@ from ..core.log import get_logger
 from .registry import get_registry
 
 _LOG = get_logger("compliance.guard")
+
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
+def _env_truthy(name: str) -> bool:
+    return (os.getenv(name) or "").strip().lower() in _TRUTHY
 
 
 @dataclass(frozen=True)
@@ -58,12 +67,29 @@ def evaluate(source: str, *, commercial_use: bool) -> Decision:
             return Decision(source, policy.tier, True, True, tuple(warnings))
 
         if tier.commercial == "verify":
-            if get_settings().allow_tier_b_commercial:
-                warnings.append(
-                    f"{policy.label} 属 Tier B（条款需逐项核实），已通过 "
-                    "TICKHUB_US_ALLOW_TIER_B_COMMERCIAL 显式放行；禁止再分发。"
+            settings = get_settings()
+            allowlist = settings.allow_tier_b_sources
+            if allowlist and source.lower() not in allowlist:
+                return Decision(
+                    source,
+                    policy.tier,
+                    True,
+                    False,
+                    reason=(
+                        f"{policy.label}（Tier B）不在 TICKHUB_US_ALLOW_TIER_B_SOURCES 白名单内"
+                        f"（当前：{', '.join(sorted(allowlist))}），默认禁止商用：{policy.terms}"
+                    ),
                 )
-                _LOG.warning("Tier B 商用放行：source=%s", source)
+            if allowlist or settings.allow_tier_b_commercial:
+                basis = (
+                    f"TICKHUB_US_ALLOW_TIER_B_SOURCES 逐项放行 {source}"
+                    if allowlist
+                    else "TICKHUB_US_ALLOW_TIER_B_COMMERCIAL 显式放行"
+                )
+                warnings.append(
+                    f"{policy.label} 属 Tier B（条款需逐项核实），已通过 {basis}；禁止再分发。"
+                )
+                _LOG.warning("Tier B 商用放行：source=%s basis=%s", source, basis)
                 return Decision(source, policy.tier, True, True, tuple(warnings))
             return Decision(
                 source,
@@ -76,12 +102,29 @@ def evaluate(source: str, *, commercial_use: bool) -> Decision:
             )
 
         if policy.tier in ("C", "D") and policy.commercial_basis_env:
-            # 自带许可的场景：用户已持有该源的商用订阅（例如 Polygon 密钥）
+            # 密钥只证明“有订阅”，不证明订阅含商用权利，因此还要显式确认。
             if os.getenv(policy.commercial_basis_env, "").strip():
+                ack_env = policy.commercial_basis_ack_env
+                if ack_env and not _env_truthy(ack_env):
+                    return Decision(
+                        source,
+                        policy.tier,
+                        True,
+                        False,
+                        reason=(
+                            f"{policy.label} 的 {policy.commercial_basis_env} 只证明存在订阅，"
+                            f"不代表订阅含商用权利；确认订阅协议允许商用后设置 {ack_env}=true。"
+                        ),
+                    )
                 warnings.append(
                     f"{policy.label} 商用放行依据：{policy.commercial_basis_note}"
                 )
-                _LOG.info("按订阅许可放行商用：source=%s basis=%s", source, policy.commercial_basis_env)
+                _LOG.info(
+                    "按订阅许可放行商用：source=%s basis=%s ack=%s",
+                    source,
+                    policy.commercial_basis_env,
+                    ack_env or "-",
+                )
                 return Decision(source, policy.tier, True, True, tuple(warnings))
 
         return Decision(

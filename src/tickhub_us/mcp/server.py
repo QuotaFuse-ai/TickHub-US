@@ -58,6 +58,7 @@ from ..market.taiwan import tw_stock
 from ..market.tools import stock_search
 from ..options.service import options_chain, options_flow
 from ..providers import available_providers
+from .security import transport_security_settings, wrap_app
 
 
 def _strict_bool(value: object) -> bool:
@@ -156,7 +157,10 @@ def register_tools(server: MCPServer) -> MCPServer:
 
     @server.tool(
         name="th_us_technical_indicators",
-        description="基于 K 线本地计算 MA/EMA/MACD/RSI/KDJ/BOLL，可传 names 指定指标。",
+        description=(
+            "基于 K 线本地计算 MA/EMA/MACD/RSI/KDJ/BOLL，可传 names 指定指标。"
+            "结果继承底层 K 线数据源的合规等级（见 payload.underlying 与 warnings）。"
+        ),
     )
     def th_us_technical_indicators(
         symbol: str,
@@ -681,20 +685,28 @@ def run_stdio() -> None:
 
 
 def run_http(host: str | None = None, port: int | None = None) -> None:
-    """Streamable HTTP 传输，默认 127.0.0.1:8001/mcp。"""
+    """Streamable HTTP 传输，默认 127.0.0.1:8001/mcp；非回环绑定强制鉴权。"""
     settings = get_settings()
-    build_server().run(
-        "streamable-http",
-        host=host or settings.mcp_http_host,
+    bind_host = host or settings.mcp_http_host
+    import uvicorn
+
+    uvicorn.run(
+        create_app(host=bind_host),
+        host=bind_host,
         port=port or settings.mcp_http_port,
-        streamable_http_path=settings.mcp_http_path,
+        log_level=_server_log_level().lower(),
     )
 
 
-def create_app():
+def create_app(host: str | None = None):
     """ASGI 工厂，供 ``uvicorn tickhub_us.mcp.server:create_app --factory`` 使用。"""
     settings = get_settings()
-    return build_server().streamable_http_app(
-        streamable_http_path=settings.mcp_http_path,
-        host=settings.mcp_http_host,
+    bind_host = host or settings.mcp_http_host
+    return wrap_app(
+        build_server().streamable_http_app(
+            streamable_http_path=settings.mcp_http_path,
+            host=bind_host,
+            transport_security=transport_security_settings(settings, bind_host),
+        ),
+        settings.mcp_http_token,
     )

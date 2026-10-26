@@ -79,6 +79,7 @@ def test_tool_failure_is_an_error_result_with_spec_text(
 ) -> None:
     """规格 §7：MCP 不抛协议异常，返回 is_error=True 且正文带工具名与错误码。"""
     monkeypatch.delenv("TICKHUB_US_ALLOW_TIER_B_COMMERCIAL", raising=False)
+    monkeypatch.delenv("TICKHUB_US_ALLOW_TIER_B_SOURCES", raising=False)
     from tickhub_us.core.config import get_settings
 
     get_settings.cache_clear()

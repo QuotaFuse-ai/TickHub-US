@@ -30,6 +30,7 @@ class SourcePolicy:
     attribution: str = ""
     adapter: str = ""
     commercial_basis_env: str = ""
+    commercial_basis_ack_env: str = ""
     commercial_basis_note: str = ""
 
 
@@ -62,6 +63,7 @@ class ComplianceRegistry:
                 attribution=str(raw.get("attribution", "")),
                 adapter=str(raw.get("adapter", "")),
                 commercial_basis_env=str(basis.get("env", "")),
+                commercial_basis_ack_env=str(basis.get("ack_env", "")),
                 commercial_basis_note=str(basis.get("note", "")),
             )
         self.default_tier = str(data.get("default_tier", "B"))

@@ -214,9 +214,14 @@ stdout 只放数据或 JSON，日志与警告走 stderr；结构化错误也在 
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `SEC_CONTACT` | 空 | **调用任何 `*.sec.gov` 接口前必须设置**，SEC 要求联系方式 |
-| `POLYGON_API_KEY` | 空 | 设置后才启用 Polygon（Tier C，可作商用许可依据） |
+| `POLYGON_API_KEY` | 空 | 设置后才启用 Polygon（Tier C） |
+| `TICKHUB_US_POLYGON_COMMERCIAL_BASIS` | `false` | 确认 Polygon 订阅含商用权利后才设 true，否则商用仍被拒绝 |
 | `YAHOO_ENABLE` | `true` | 关闭 Yahoo 适配器 |
-| `TICKHUB_US_ALLOW_TIER_B_COMMERCIAL` | `false` | Tier B 商用总开关，慎用 |
+| `TICKHUB_US_ALLOW_TIER_B_SOURCES` | 空 | Tier B 按源白名单（逗号分隔），比总开关更细 |
+| `TICKHUB_US_ALLOW_TIER_B_COMMERCIAL` | `false` | Tier B 商用总开关，慎用；白名单非空时以白名单为准 |
+| `MCP_HTTP_TOKEN` | 空 | 非回环绑定时必填；设置后除 `/healthz` 外都要求 Bearer 令牌 |
+| `MCP_HTTP_ALLOWED_HOSTS` | 空 | 绑定 `0.0.0.0`/`::` 时必填，列出客户端实际 Host |
+| `MCP_HTTP_ALLOWED_ORIGINS` | 空 | 浏览器跨源调用时才需要 |
 | `TICKHUB_US_CONFIG_DIR` | 自动探测 | 指到包含两个 YAML 的目录 |
 | `REDIS_URL` | `redis://127.0.0.1:6379/0` | 共享缓存 |
 | `CACHE_ENV` | `prod` | 设为 `off` 完全禁用缓存 |

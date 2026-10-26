@@ -1,7 +1,7 @@
 """Polygon.io 适配器（需 POLYGON_API_KEY）。
 
-持有有效订阅密钥时，商用调用按 compliance.yaml 的 commercial_basis 放行，
-范围以用户自己的订阅协议为准。
+密钥只证明存在订阅；商用调用还需 TICKHUB_US_POLYGON_COMMERCIAL_BASIS=true
+显式确认订阅协议允许商用（见 compliance.yaml 的 commercial_basis）。
 """
 
 from __future__ import annotations

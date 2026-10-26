@@ -23,8 +23,11 @@ tiers:
     commercial_use: verify
     redistribute: deny
     label: 可下载但条款受限
-    note: 默认禁止商用；必须逐项核实条款，且不得再分发。仅当显式设置
-          TICKHUB_US_ALLOW_TIER_B_COMMERCIAL=true 时放行，并在信封中记录合规警告。
+    note: 默认禁止商用；必须逐项核实条款，且不得再分发。放行有两种方式：
+          TICKHUB_US_ALLOW_TIER_B_SOURCES=源名（逗号分隔，逐项放行，推荐）或
+          TICKHUB_US_ALLOW_TIER_B_COMMERCIAL=true 放行全部 Tier B 源（粗粒度）。
+          白名单非空时以白名单为准，未列出的源即使全局开关打开也会被拒绝；
+          每次放行都会在信封中记录合规警告。
   C:
     commercial_use: deny
     redistribute: deny
@@ -131,7 +134,8 @@ sources:
     terms: "需订阅密钥；商用须遵守其订阅计划与再分发条款"
     commercial_basis:
       env: POLYGON_API_KEY
-      note: "持有有效订阅密钥即视为已取得许可，商用范围以订阅协议为准；无密钥时按 Tier C 拒绝。"
+      ack_env: TICKHUB_US_POLYGON_COMMERCIAL_BASIS
+      note: "订阅密钥只证明存在付费订阅，不证明订阅含商用/再分发权利；确认订阅协议允许商用后需显式设置 TICKHUB_US_POLYGON_COMMERCIAL_BASIS=true，商用范围以订阅协议为准。"
 
   # ---------------- Tier D ----------------
   yahoo:

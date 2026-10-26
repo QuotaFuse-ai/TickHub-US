@@ -35,6 +35,7 @@ def test_commercial_use_denied_for_restricted_tiers(
     source: str, tier: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("TICKHUB_US_ALLOW_TIER_B_COMMERCIAL", raising=False)
+    monkeypatch.delenv("TICKHUB_US_ALLOW_TIER_B_SOURCES", raising=False)
     get_settings.cache_clear()
     try:
         decision = evaluate(source, commercial_use=True)
@@ -61,6 +62,7 @@ def test_personal_use_allowed_with_tier_specific_warnings(source: str) -> None:
 
 
 def test_tier_b_commercial_requires_explicit_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TICKHUB_US_ALLOW_TIER_B_SOURCES", raising=False)
     monkeypatch.setenv("TICKHUB_US_ALLOW_TIER_B_COMMERCIAL", "true")
     get_settings.cache_clear()
     try:
@@ -70,6 +72,82 @@ def test_tier_b_commercial_requires_explicit_opt_in(monkeypatch: pytest.MonkeyPa
 
     assert decision.allowed is True
     assert any("TICKHUB_US_ALLOW_TIER_B_COMMERCIAL" in warning for warning in decision.warnings)
+
+
+def test_tier_b_allowlist_grants_only_listed_sources(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TICKHUB_US_ALLOW_TIER_B_COMMERCIAL", raising=False)
+    monkeypatch.setenv("TICKHUB_US_ALLOW_TIER_B_SOURCES", "finra")
+    get_settings.cache_clear()
+    try:
+        allowed = evaluate("finra", commercial_use=True)
+        denied = evaluate("eia_spot", commercial_use=True)
+    finally:
+        get_settings.cache_clear()
+
+    assert allowed.allowed is True
+    assert any("TICKHUB_US_ALLOW_TIER_B_SOURCES" in warning for warning in allowed.warnings)
+    assert denied.allowed is False
+    assert "finra" in denied.reason
+
+
+def test_tier_b_allowlist_overrides_the_global_switch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TICKHUB_US_ALLOW_TIER_B_COMMERCIAL", "true")
+    monkeypatch.setenv("TICKHUB_US_ALLOW_TIER_B_SOURCES", "finra")
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(ComplianceError) as info:
+            enforce("eia_spot", commercial_use=True)
+    finally:
+        get_settings.cache_clear()
+
+    assert info.value.exit_code == 8
+    assert "TICKHUB_US_ALLOW_TIER_B_SOURCES" in info.value.message
+
+
+def test_tier_b_allowlist_is_case_insensitive(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TICKHUB_US_ALLOW_TIER_B_COMMERCIAL", raising=False)
+    monkeypatch.setenv("TICKHUB_US_ALLOW_TIER_B_SOURCES", "FINRA")
+    get_settings.cache_clear()
+    try:
+        decision = evaluate("finra", commercial_use=True)
+    finally:
+        get_settings.cache_clear()
+
+    assert decision.allowed is True
+
+
+def test_subscription_key_alone_does_not_grant_commercial_use(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """SEC-16：密钥只证明有订阅，商用还需显式确认订阅协议允许商用。"""
+    monkeypatch.setenv("POLYGON_API_KEY", "test-key")
+    monkeypatch.delenv("TICKHUB_US_POLYGON_COMMERCIAL_BASIS", raising=False)
+    decision = evaluate("polygon", commercial_use=True)
+
+    assert decision.allowed is False
+    assert "TICKHUB_US_POLYGON_COMMERCIAL_BASIS" in decision.reason
+
+
+def test_subscription_key_with_acknowledgement_allows_commercial_use(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("POLYGON_API_KEY", "test-key")
+    monkeypatch.setenv("TICKHUB_US_POLYGON_COMMERCIAL_BASIS", "true")
+    decision = evaluate("polygon", commercial_use=True)
+
+    assert decision.allowed is True
+    assert decision.tier == "C"
+    assert any("商用放行依据" in warning for warning in decision.warnings)
+
+
+def test_acknowledgement_without_subscription_key_is_still_denied(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("POLYGON_API_KEY", raising=False)
+    monkeypatch.setenv("TICKHUB_US_POLYGON_COMMERCIAL_BASIS", "true")
+    decision = evaluate("polygon", commercial_use=True)
+
+    assert decision.allowed is False
 
 
 @pytest.mark.parametrize("value", ["true", "false", 1, 0, None])
@@ -113,6 +191,7 @@ def test_chain_ignores_providers_without_the_requested_metric(
 ) -> None:
     """不具备该 metric 的源不算候选，否则会把合规拒绝伪装成 E_NO_DATA。"""
     monkeypatch.delenv("TICKHUB_US_ALLOW_TIER_B_COMMERCIAL", raising=False)
+    monkeypatch.delenv("TICKHUB_US_ALLOW_TIER_B_SOURCES", raising=False)
     get_settings.cache_clear()
     providers = available_providers()
 

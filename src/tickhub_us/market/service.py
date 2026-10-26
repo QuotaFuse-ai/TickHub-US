@@ -85,7 +85,7 @@ def indicators(
 ) -> dict[str, Any]:
     """技术指标（MA/EMA/MACD/RSI/KDJ/BOLL），底层复用 kline 的降级链。"""
     sym = normalize(symbol)
-    return run_chain(
+    result = run_chain(
         "indicators",
         symbol=sym,
         commercial_use=commercial_use,
@@ -104,6 +104,24 @@ def indicators(
         d=d,
         rsi_period=rsi_period,
     )
+    return _inherit_underlying_tier(result)
+
+
+def _inherit_underlying_tier(result: dict[str, Any]) -> dict[str, Any]:
+    """指标外层是 local/Tier S，但结果继承底层 K 线数据源的限制（SEC-11）。"""
+    underlying = (result.get("payload") or {}).get("underlying") or {}
+    tier = underlying.get("compliance_tier")
+    source = underlying.get("source")
+    if not tier or tier == "S" or not source:
+        return result
+    note = (
+        f"指标由本地计算（{result.get('source')} / Tier {result.get('compliance_tier')}），"
+        f"底层 K 线来自 {source}（Tier {tier}），结果继承该数据源的使用限制。"
+    )
+    warnings = list(result.get("warnings") or [])
+    if note not in warnings:
+        warnings.append(note)
+    return {**result, "warnings": warnings}
 
 
 def fund_flow(

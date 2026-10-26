@@ -31,7 +31,8 @@ pip install -e ".[dev]"
 要求 Python ≥ 3.11。
 
 容器：`docker build -t tickhub-us .`，默认以 stdio 传输运行（由 MCP 客户端拉起）。
-HTTP 传输在容器内必然对外监听，须先落实 SEC-03 的鉴权方案，镜像未开放该入口。
+镜像未开放 HTTP 入口；需要在容器内对外提供 HTTP 时，必须显式设置
+`MCP_HTTP_TOKEN`（见下方「MCP HTTP 安全」）。
 CI（`.github/workflows/ci.yml`）在 Python 3.11 / 3.12 上跑 ruff、`compileall` 与离线测试。
 
 ## 快速开始
@@ -61,8 +62,12 @@ th-us mcp http --host 127.0.0.1 --port 8001
 所有取数接口都要求显式传入 `commercial_use`（MCP 工具参数 / CLI `--commercial-use`）：
 
 - `false`：个人研究，Tier S / B / C / D 均可调用，Tier C / D 会附警告；
-- `true`：Tier S 放行；Tier B 默认拒绝（除非设置 `TICKHUB_US_ALLOW_TIER_B_COMMERCIAL=true`）；
+- `true`：Tier S 放行；Tier B 默认拒绝，可逐项放行
+  （`TICKHUB_US_ALLOW_TIER_B_SOURCES=finra,eia_spot`，白名单非空即权威口径；
+  `TICKHUB_US_ALLOW_TIER_B_COMMERCIAL=true` 则是放行全部的粗粒度开关）；
   Tier C / D 直接抛 `ComplianceError`，**不会降级绕过**。
+- Polygon 例外：`POLYGON_API_KEY` 只证明有订阅，商用还需显式确认订阅协议
+  （`TICKHUB_US_POLYGON_COMMERCIAL_BASIS=true`），否则按 Tier C 拒绝。
 
 ## 合规分级
 
@@ -119,6 +124,30 @@ rates: bis → ecb → ny_fed → federal_reserve → treasury
 工具入口的中间件会拒绝缺少 `commercial_use` 的调用（`ComplianceError`），
 避免 Agent 在不知情的情况下触犯数据源条款。
 
+## MCP HTTP 安全
+
+默认只监听回环地址（`127.0.0.1` / `localhost` / `[::1]`），并始终启用 DNS 重绑定防护：
+Host / Origin 白名单由 `create_app()` 显式传入，回环场景只放行回环主机。
+
+对外监听是**显式动作**，缺一项就启动失败（`E_CONFIG`）：
+
+| 场景 | 要求 |
+|---|---|
+| `MCP_HTTP_HOST=127.0.0.1` | 无 |
+| 绑定具体网卡（如 `10.0.0.5`） | 必须设置 `MCP_HTTP_TOKEN` |
+| 绑定 `0.0.0.0` / `::` | 必须设置 `MCP_HTTP_TOKEN` + `MCP_HTTP_ALLOWED_HOSTS` |
+
+设置 `MCP_HTTP_TOKEN` 后，除 `GET /healthz`（容器探针 / 负载均衡器用，保持匿名）外，
+所有请求都必须带 `Authorization: Bearer <token>`，校验用常量时间比较，失败返回 401 +
+`WWW-Authenticate: Bearer realm="tickhub-us"`。
+
+```bash
+MCP_HTTP_HOST=0.0.0.0 \
+MCP_HTTP_TOKEN="$(openssl rand -hex 32)" \
+MCP_HTTP_ALLOWED_HOSTS=tickhub.internal:8001 \
+th-us mcp http
+```
+
 ## 目录结构
 
 ```
@@ -150,10 +179,10 @@ Dockerfile              stdio 专用镜像（非 root）
 | `core/` `cache/` `compliance/` | 已完成 | 配置、错误码、HTTP 重试、DataEnvelope、分级 TTL、Redis→LRU 兜底、Tier 注册表与拦截器 |
 | `providers/`（20 个适配器） | 已完成 | 每个适配器都登记 `compliance_source`，取数前必经 `enforce()`；多 metric 域按 `supports()` 跳过不提供该数据的源（DEC-006） |
 | `market/` `fundamental/` `options/` `filings/` | 已完成 | 行情/K 线/指标/资金流/卖空/波动率、三表与预期、期权链与异动、SEC 全量申报 |
-| `mcp/` | 已完成 | 30 个工具，stdio 与 Streamable HTTP 双通道实测通过，入口强制 `commercial_use` |
+| `mcp/` | 已完成 | 30 个工具（DEC-010 维持不扩张），stdio 与 Streamable HTTP 双通道实测通过，入口强制 `commercial_use`；非回环绑定强制令牌与 Host/Origin 校验（DEC-007） |
 | `cli/` | 已完成 | `quote` / `finance` / `options` / `macro` / `cache` / `compliance` / `source` / `mcp` / `config` / `start-all` |
 | `SKILL.md` | 已完成 | Agent 侧瘦身 SOP（调用约定、工具速查、合规分级、缓存 TTL） |
-| `tests/` | 已完成 | 176 个用例：173 个离线（契约 + 合规 + 降级链矩阵 + 密钥脱敏 + 输入/网络加固），3 个真实联网冒烟（需 `TICKHUB_US_LIVE=1`） |
+| `tests/` | 已完成 | 197 个用例：194 个离线（契约 + 合规 + 降级链矩阵 + 密钥脱敏 + 输入/网络加固 + MCP HTTP 安全 + 指标 Tier 继承），3 个真实联网冒烟（需 `TICKHUB_US_LIVE=1`） |
 
 ```bash
 # 离线全量（无需外网、无需 Redis）

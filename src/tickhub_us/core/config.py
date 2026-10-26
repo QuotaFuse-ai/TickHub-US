@@ -45,6 +45,11 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _env_list(name: str) -> tuple[str, ...]:
+    raw = os.getenv(name) or ""
+    return tuple(part.strip() for part in raw.split(",") if part.strip())
+
+
 def find_config_dir() -> Path:
     """按优先级定位配置目录：显式环境变量 > 当前目录 > 仓库布局 > 安装目录。"""
     explicit = _env("TICKHUB_US_CONFIG_DIR")
@@ -83,10 +88,14 @@ class Settings:
     mcp_http_host: str = "127.0.0.1"
     mcp_http_port: int = 8001
     mcp_http_path: str = "/mcp"
+    mcp_http_token: str = ""
+    mcp_http_allowed_hosts: tuple[str, ...] = ()
+    mcp_http_allowed_origins: tuple[str, ...] = ()
     sec_contact: str = ""
     polygon_api_key: str = ""
     yahoo_enable: bool = True
     allow_tier_b_commercial: bool = False
+    allow_tier_b_sources: frozenset[str] = frozenset()
 
     @property
     def version(self) -> str:
@@ -117,10 +126,16 @@ def get_settings() -> Settings:
         mcp_http_host=_env("MCP_HTTP_HOST", "127.0.0.1"),
         mcp_http_port=_env_int("MCP_HTTP_PORT", 8001),
         mcp_http_path=_env("MCP_HTTP_PATH", "/mcp"),
+        mcp_http_token=_env("MCP_HTTP_TOKEN"),
+        mcp_http_allowed_hosts=_env_list("MCP_HTTP_ALLOWED_HOSTS"),
+        mcp_http_allowed_origins=_env_list("MCP_HTTP_ALLOWED_ORIGINS"),
         sec_contact=_env("SEC_CONTACT"),
         polygon_api_key=_env("POLYGON_API_KEY"),
         yahoo_enable=_env_bool("YAHOO_ENABLE", True),
         allow_tier_b_commercial=_env_bool("TICKHUB_US_ALLOW_TIER_B_COMMERCIAL", False),
+        allow_tier_b_sources=frozenset(
+            name.lower() for name in _env_list("TICKHUB_US_ALLOW_TIER_B_SOURCES")
+        ),
     )
 
 
