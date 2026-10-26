@@ -9,11 +9,17 @@
   （Windows 上 ``os.kill`` 的非 0 信号会走 ``TerminateProcess``）。
 - Redis 不可用不影响采集：事件进 SQLite outbox，每轮结束与每 5 分钟补投一次。
 
-用法（在 TickHub-US 仓库根目录）：
+用法（在 TickHub-US 仓库根目录；``--config`` 省略时读包内 ``config.yaml``）：
 
     python -m us_collector.scheduler --config us_collector/config.yaml
     python -m us_collector.scheduler --once --mock --dry-run --no-lock
     python -m us_collector.scheduler --once --dry-run --symbols AAPL
+
+``pip install`` 后控制台入口（可在任意目录启动，config.yaml 里的相对路径
+仍相对当前工作目录解析）：
+
+    th-us-collector --config ./collector.yaml
+    th-us-collector --once --mock --dry-run --no-lock
 """
 
 from __future__ import annotations
@@ -43,6 +49,9 @@ from .outbox import Outbox, utc_now
 from .publisher import Publisher
 
 _LOG = logging.getLogger("us_collector.scheduler")
+
+# Resolved next to the package so the console script works from any cwd.
+DEFAULT_CONFIG = Path(__file__).with_name("config.yaml")
 
 ET = ZoneInfo("America/New_York")
 LOCK_EXIT_CODE = 2
@@ -555,7 +564,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         prog="python -m us_collector.scheduler",
         description="TickHub-US 采集 sidecar（MCP HTTP → FinanceCoffer 事件）",
     )
-    parser.add_argument("--config", default="us_collector/config.yaml", help="配置文件路径")
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG), help="配置文件路径（默认包内 config.yaml）")
     parser.add_argument("--once", action="store_true", help="只跑一轮后退出（运维/演练）")
     parser.add_argument(
         "--dry-run",

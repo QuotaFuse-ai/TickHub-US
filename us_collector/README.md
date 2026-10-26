@@ -49,6 +49,16 @@ export MCP_HTTP_TOKEN=...
 python -m us_collector.scheduler --config us_collector/config.yaml
 ```
 
+`pip install` 本仓库后可直接用控制台入口（`[project.scripts] th-us-collector`）：
+
+```bash
+th-us-collector --config /etc/tickhub-us/collector.yaml
+th-us-collector --once --mock --dry-run --no-lock
+```
+
+`--config` 省略时读取包内自带的 `us_collector/config.yaml`；配置文件里的相对路径
+（outbox / lock）仍相对当前工作目录解析，生产环境请用绝对路径或固定的服务目录。
+
 - 常驻进程按 `schedule` 配置在美东工作日 17:30 触发；启动时先补投一次 outbox，
   之后每 `outbox.flush_interval_seconds`（默认 300s）补投一次。
 - 停止：`Ctrl+C` 或向进程发 `SIGTERM`；进程会在 `finally` 中释放锁并关闭

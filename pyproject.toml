@@ -30,6 +30,9 @@ dependencies = [
   "python-dotenv>=1.0",
   "redis>=5.0",
   "pydantic>=2.5",
+  # us_collector sidecar (th-us-collector): scheduler and the ET timezone rules.
+  "apscheduler>=3.11,<4",
+  "tzdata>=2024.1",
 ]
 
 [project.optional-dependencies]
@@ -37,6 +40,7 @@ dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.6"]
 
 [project.scripts]
 th-us = "tickhub_us.cli.main:main"
+th-us-collector = "us_collector.scheduler:main"
 
 [project.urls]
 Homepage = "https://github.com/QuotaFuse-ai/TickHub-US"
@@ -46,11 +50,19 @@ Issues = "https://github.com/QuotaFuse-ai/TickHub-US/issues"
 Releases = "https://github.com/QuotaFuse-ai/TickHub-US/releases"
 Changelog = "https://github.com/QuotaFuse-ai/TickHub-US/blob/main/CHANGELOG.md"
 
-[tool.setuptools]
-package-dir = { "" = "src" }
+[tool.setuptools.package-dir]
+"" = "src"
+# The collector sidecar stays a top-level package next to the checkout so
+# `python -m us_collector.scheduler` keeps working from the repo root.
+us_collector = "us_collector"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "."]
+include = ["tickhub_us*", "us_collector*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+us_collector = ["config.yaml"]
 
 [tool.setuptools.data-files]
 "share/tickhub-us/config" = ["config/sources.yaml", "config/compliance.yaml"]
