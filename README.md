@@ -135,7 +135,9 @@ Distribution name `tickhub-us` · Python package `tickhub_us` · CLI `th-us`. Re
 **3 steps, 2 minutes.**
 
 ```bash
-# 1. Install (once the PyPI release is live: pip install tickhub-us)
+# 1. Install (PyPI 1.0.0, published 2026-10-26)
+pip install tickhub-us
+# or from a checkout
 git clone https://github.com/QuotaFuse-ai/TickHub-US.git
 pip install -e TickHub-US
 # development
@@ -185,10 +187,10 @@ Look at `compliance_tier` and `warnings`: this row came from Sina, a tier-C sour
 
 ### One-click install
 
-Four distribution channels, one code base — PyPI wheel / sdist, GitHub Release assets, GHCR container image, and source install. The first two become available once the release workflow has run; see [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
+Four distribution channels, one code base — PyPI wheel / sdist, GitHub Release assets, GHCR container image, and source install. PyPI and the Release assets are live as of v1.0.0; see [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
 
 ```bash
-# PyPI (after v1.0.0 is published)
+# PyPI
 pip install tickhub-us
 th-us quote get AAPL
 
@@ -617,7 +619,7 @@ Dockerfile              image (non-root, stdio by default)
 
 **Can I use it without an MCP client?** Yes. The `th-us` CLI covers every endpoint, and `--output json` feeds any script directly.
 
-**Can I install it from PyPI? Is there a Docker image?** The code side is ready: `publish.yml` produces sdist / wheel / GitHub Release assets and `docker.yml` produces `ghcr.io/quotafuse-ai/tickhub-us`. The first upload needs the repository owner to finish the one-time PyPI setup (a couple of minutes), after which the workflow is a single manual dispatch. Until then, install from source — see [Quick start](#quick-start) and [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
+**Can I install it from PyPI? Is there a Docker image?** Yes — `pip install tickhub-us` installs 1.0.0 ([PyPI](https://pypi.org/project/tickhub-us/)), and the same wheel / sdist ship as [v1.0.0 release assets](https://github.com/QuotaFuse-ai/TickHub-US/releases/tag/v1.0.0). The container image is built by `docker.yml` and published to `ghcr.io/quotafuse-ai/tickhub-us`. Publishing is a single manual dispatch of `publish.yml` / `docker.yml`; steps are in [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
 
 ## Version
 
@@ -626,7 +628,7 @@ Dockerfile              image (non-root, stdio by default)
 - Fixed BIS policy rates always returning 404 (the SDMX key duplicated the `D.` dimension);
 - Fixed Yahoo quoteSummary returning 401 across the board (a non-browser UA got 429, so no crumb could be obtained; now it cools down and retries instead of giving up permanently);
 - Added 13 live smoke cases and a `workflow_dispatch` live job, with an offline regression test for each of the two defects;
-- Shipped four distribution channels: PyPI wheel / sdist (`publish.yml`, PEP 639 metadata), GitHub Release assets, GHCR container image (`docker.yml`, with a real smoke), and source install; the wheel bundles `config/`, so it runs from any directory.
+- Shipped four distribution channels: PyPI wheel / sdist (`publish.yml`, PEP 639 metadata), GitHub Release assets, GHCR container image (`docker.yml`, with a real smoke), and source install; the wheel bundles `config/`, so it runs from any directory. Verified by installing 1.0.0 from PyPI into a clean venv and running a live quote from outside the repository.
 
 ---
 

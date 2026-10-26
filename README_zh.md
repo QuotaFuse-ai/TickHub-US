@@ -134,7 +134,9 @@ TickHub-US · MCP Server + CLI · v1.0.0
 **3 步，2 分钟。**
 
 ```bash
-# 1. 安装（PyPI 上架后一行即可：pip install tickhub-us）
+# 1. 安装（PyPI 1.0.0，2026-10-26 已发布）
+pip install tickhub-us
+# 或从源码
 git clone https://github.com/QuotaFuse-ai/TickHub-US.git
 pip install -e TickHub-US
 # 开发环境
@@ -184,10 +186,10 @@ th-us quote get AAPL --output json      # stdout 只有 JSON，日志走 stderr
 
 ### 一键使用
 
-四种分发包一套代码：PyPI wheel / sdist、GitHub Release 附件、GHCR 容器镜像、源码安装。前两种在发布工作流跑过一次后即可用；发布流程与镜像用法见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+四种分发包一套代码：PyPI wheel / sdist、GitHub Release 附件、GHCR 容器镜像、源码安装。v1.0.0 的 PyPI 包与 Release 附件均已上线；发布流程与镜像用法见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
 
 ```bash
-# PyPI（v1.0.0 发布后）
+# PyPI
 pip install tickhub-us
 th-us quote get AAPL
 
@@ -615,7 +617,7 @@ Dockerfile              镜像（非 root，默认 stdio）
 
 **不用 MCP 客户端能用吗？** 能。`th-us` CLI 覆盖全部端点，`--output json` 后可直接喂给任何脚本。
 
-**现在能从 PyPI 装吗？有没有 Docker 镜像？** 代码侧已就绪：`publish.yml` 会产出 sdist / wheel / GitHub Release 附件，`docker.yml` 会产出 `ghcr.io/quotafuse-ai/tickhub-us`。首次上传需要仓库主人在 PyPI 注册项目并配置可信发布（一次性，约两分钟），之后在工作流里点一下即可发布。在此之前请用源码安装，见 [快速开始](#快速开始) 与 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+**现在能从 PyPI 装吗？有没有 Docker 镜像？** 能——`pip install tickhub-us` 装到的就是 1.0.0（[PyPI](https://pypi.org/project/tickhub-us/)），同一份 wheel / sdist 也挂在 [v1.0.0 Release](https://github.com/QuotaFuse-ai/TickHub-US/releases/tag/v1.0.0) 上。容器镜像由 `docker.yml` 构建并推到 `ghcr.io/quotafuse-ai/tickhub-us`。发布都是手动 dispatch 一次 `publish.yml` / `docker.yml`，步骤见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
 
 ## 版本
 
@@ -624,7 +626,7 @@ Dockerfile              镜像（非 root，默认 stdio）
 - 修复 BIS 政策利率恒 404（SDMX key 重复拼接 `D.` 维度）；
 - 修复 Yahoo quoteSummary 全线 401（非浏览器 UA 被回 429，取不到 crumb 导致；同时改为失败后冷却重试而非永久放弃）；
 - 新增 13 个联网冒烟用例与 `workflow_dispatch` 联网作业，两个缺陷各有离线回归用例；
-- 打通四条分发包：PyPI wheel / sdist（`publish.yml`，PEP 639 元数据）、GitHub Release 附件、GHCR 容器镜像（`docker.yml`，含真机冒烟）、源码安装；wheel 自带 `config/`，装完在任意目录都能跑。
+- 打通四条分发包：PyPI wheel / sdist（`publish.yml`，PEP 639 元数据）、GitHub Release 附件、GHCR 容器镜像（`docker.yml`，含真机冒烟）、源码安装；wheel 自带 `config/`，装完在任意目录都能跑。已在干净 venv 里从 PyPI 装 1.0.0，并在仓库外跑通一次实时报价。
 
 ---
 
