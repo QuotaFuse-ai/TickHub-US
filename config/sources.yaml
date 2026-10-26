@@ -1,0 +1,261 @@
+# TickHub-US 数据源优先级与限流参数
+#
+# 说明：
+#   - domains[*].chain 是同一领域内的降级链，按顺序尝试；任一源成功即返回，
+#     失败原因会汇总进 DataEnvelope.attempts，便于定位。
+#   - ttl 单位秒，遵循“官方/低频数据长 TTL，行情短 TTL”的分级缓存策略。
+#   - freshness 取值：realtime | delayed | eod | historical | snapshot。
+#   - provider.compliance_source 指向 config/compliance.yaml 中的 sources 键，
+#     合规拦截以它为唯一依据，不在代码里硬编码 Tier。
+version: 1
+
+rate_limits:
+  sec.gov:
+    per_sec: 8
+    note: "SEC 官方硬上限 10 req/s，留 20% 余量"
+  finra.org:
+    per_sec: 4
+  cboe.com:
+    per_sec: 4
+  nasdaq.com:
+    per_sec: 2
+  default:
+    per_sec: 5
+
+request_defaults:
+  timeout_seconds: 20
+  retries: 2
+  backoff_seconds: 0.6
+  user_agent: "tickhub-us/{version} (+https://github.com/QuotaFuse-ai/TickHub-US)"
+
+providers:
+  local:
+    label: 本地计算（技术指标）
+    compliance_source: local
+    domains: [indicators]
+  sina:
+    label: 新浪财经
+    compliance_source: sina
+    domains: [quote_us, quote_hk, kline_us]
+  tencent:
+    label: 腾讯行情
+    compliance_source: tencent
+    domains: [quote_us, quote_hk]
+  eastmoney:
+    label: 东方财富
+    compliance_source: eastmoney
+    domains: [quote_us, quote_hk, fundamental, financial_statements, key_indicators,
+              fund_flow, market_list, tools]
+  yahoo:
+    label: Yahoo Finance
+    compliance_source: yahoo
+    domains: [quote_us, quote_hk, kline_us, kline_hk, fundamental, statements, holders,
+              analyst, news, options_flow, taiwan, tools]
+  polygon:
+    label: Polygon.io
+    compliance_source: polygon
+    domains: [quote_us, kline_us]
+    optional: true
+  sec_edgar:
+    label: SEC EDGAR
+    compliance_source: sec_edgar
+    domains: [fundamental, xbrl_facts, filings, filing_stream, fulltext, screener,
+              insider, holdings_13f, ticker_cik, tools]
+  cboe:
+    label: CBOE 官方
+    compliance_source: cboe
+    domains: [options_flow, volatility, cboe_quote]
+  finra:
+    label: FINRA
+    compliance_source: finra
+    domains: [short_volume, short_volume_all, short_interest, short_interest_all]
+  treasury:
+    label: US Treasury
+    compliance_source: treasury
+    domains: [macro, rates]
+  cftc:
+    label: CFTC
+    compliance_source: cftc
+    domains: [macro]
+  nasdaq:
+    label: Nasdaq
+    compliance_source: nasdaq
+    domains: [macro]
+  bis:
+    label: BIS
+    compliance_source: bis
+    domains: [rates]
+  ecb:
+    label: ECB
+    compliance_source: ecb
+    domains: [rates]
+  ny_fed:
+    label: Federal Reserve Bank of New York
+    compliance_source: ny_fed
+    domains: [rates]
+  federal_reserve:
+    label: Federal Reserve Board
+    compliance_source: federal_reserve
+    domains: [rates]
+  eia:
+    label: US EIA
+    compliance_source: eia
+    domains: [energy]
+  eia_spot:
+    label: US EIA（现货价，Refinitiv 转授权）
+    compliance_source: eia_spot
+    domains: [energy]
+  twse:
+    label: 台湾证券交易所
+    compliance_source: twse
+    domains: [taiwan]
+  tpex:
+    label: 台湾柜买中心
+    compliance_source: tpex
+    domains: [taiwan]
+
+domains:
+  # ---- 行情 / K 线 / 指标 ----
+  quote_us:
+    ttl: 30
+    freshness: realtime
+    chain: [polygon, sina, tencent, eastmoney]
+  quote_hk:
+    ttl: 30
+    freshness: realtime
+    chain: [tencent, sina, eastmoney]
+  kline_us:
+    ttl: 30
+    freshness: realtime
+    chain: [polygon, sina, yahoo]
+  kline_hk:
+    ttl: 30
+    freshness: realtime
+    chain: [yahoo]
+  indicators:
+    ttl: 30
+    freshness: realtime
+    chain: [local]
+  # ---- 基本面 / 资金流 ----
+  fundamental:
+    ttl: 43200
+    freshness: eod
+    chain: [eastmoney, yahoo, sec_edgar]
+  financial_statements:
+    ttl: 43200
+    freshness: historical
+    chain: [eastmoney]
+  key_indicators:
+    ttl: 43200
+    freshness: eod
+    chain: [eastmoney]
+  statements:
+    ttl: 43200
+    freshness: historical
+    chain: [yahoo]
+  holders:
+    ttl: 43200
+    freshness: eod
+    chain: [yahoo]
+  analyst:
+    ttl: 43200
+    freshness: eod
+    chain: [yahoo]
+  news:
+    ttl: 300
+    freshness: eod
+    chain: [yahoo]
+  fund_flow:
+    ttl: 300
+    freshness: eod
+    chain: [eastmoney]
+  # ---- 期权 / 波动率 ----
+  options_flow:
+    ttl: 60
+    freshness: realtime
+    chain: [cboe, yahoo]
+  volatility:
+    ttl: 3600
+    freshness: eod
+    chain: [cboe]
+  cboe_quote:
+    ttl: 60
+    freshness: realtime
+    chain: [cboe]
+  # ---- 财报 / 内部人 / 13F ----
+  filings:
+    ttl: 43200
+    freshness: historical
+    chain: [sec_edgar]
+  filing_stream:
+    ttl: 3600
+    freshness: eod
+    chain: [sec_edgar]
+  fulltext:
+    ttl: 43200
+    freshness: historical
+    chain: [sec_edgar]
+  screener:
+    ttl: 43200
+    freshness: historical
+    chain: [sec_edgar]
+  xbrl_facts:
+    ttl: 43200
+    freshness: historical
+    chain: [sec_edgar]
+  insider:
+    ttl: 43200
+    freshness: historical
+    chain: [sec_edgar]
+  holdings_13f:
+    ttl: 43200
+    freshness: historical
+    chain: [sec_edgar]
+  # ---- 卖空 ----
+  short_volume:
+    ttl: 43200
+    freshness: eod
+    chain: [finra]
+  short_volume_all:
+    ttl: 43200
+    freshness: eod
+    chain: [finra]
+  short_interest:
+    ttl: 43200
+    freshness: eod
+    chain: [finra]
+  short_interest_all:
+    ttl: 43200
+    freshness: eod
+    chain: [finra]
+  # ---- 宏观 / 利率 / 汇率 ----
+  macro:
+    ttl: 43200
+    freshness: eod
+    chain: [treasury, cftc, nasdaq]
+  rates:
+    ttl: 43200
+    freshness: eod
+    chain: [bis, ecb, ny_fed, federal_reserve, treasury]
+  # ---- 台湾 / 能源 ----
+  taiwan:
+    ttl: 300
+    freshness: eod
+    chain: [twse, tpex, yahoo]
+  energy:
+    ttl: 43200
+    freshness: eod
+    chain: [eia, eia_spot]
+  # ---- 工具类 ----
+  tools:
+    ttl: 86400
+    freshness: snapshot
+    chain: [yahoo, eastmoney, sec_edgar]
+  ticker_cik:
+    ttl: 86400
+    freshness: snapshot
+    chain: [sec_edgar]
+  market_list:
+    ttl: 60
+    freshness: realtime
+    chain: [eastmoney]

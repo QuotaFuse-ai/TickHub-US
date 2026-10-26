@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tickhub-us"
+version = "0.1.0"
+description = "TickHub-US：面向 AI Agent 的美股/港股数据引擎（独立 MCP Server + CLI）"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "QuotaFuse", email = "44062290+QuotaFuse-ai@users.noreply.github.com" }]
+keywords = ["us-stocks", "hk-stocks", "mcp", "market-data", "sec-edgar", "options", "ai-agent"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = [
+  "mcp>=2.3,<3",
+  "requests>=2.31",
+  "typer>=0.12",
+  "PyYAML>=6.0",
+  "python-dotenv>=1.0",
+  "redis>=5.0",
+  "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.6"]
+all = []
+
+[project.scripts]
+th-us = "tickhub_us.cli.main:main"
+
+[project.urls]
+Homepage = "https://github.com/QuotaFuse-ai/TickHub-US"
+Issues = "https://github.com/QuotaFuse-ai/TickHub-US/issues"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tickhub_us = ["data/*.yaml"]
+
+[tool.setuptools.data-files]
+"share/tickhub-us/config" = ["config/sources.yaml", "config/compliance.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "live: touches public endpoints (set TICKHUB_US_LIVE=1 to run)",
+  "contract: interface contract tests",
+  "compliance: compliance gate tests",
+  "slow: slow tests",
+]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B"]
+ignore = ["E501"]

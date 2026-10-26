@@ -1,0 +1,151 @@
+# TickHub-US 合规分级（代码化强制拦截）
+#
+# 分级依据：参考项目 global-stock-data 对各家条款的逐条核对（2026-10 复核）。
+# 重要：**“官方”不等于“可以自由商用”**。本文件的 tier 是拦截依据，
+#       MCP 工具入口的 compliance_use 参数与这里的策略共同决定是否放行。
+#
+# tier 语义：
+#   S  公共领域 / 官方公开数据：允许商用、允许再分发（部分要求署名）
+#   B  可下载但条款受限：默认**禁止商用**，需逐项核实；不开源再分发
+#   C  需事先书面许可 / 仅个人研究：禁止商用
+#   D  条款禁止自动访问：仅个人研究，禁止商用与再分发
+#   X  完全排除：不提供任何适配器
+version: 1
+default_tier: B
+
+tiers:
+  S:
+    commercial_use: allow
+    redistribute: allow
+    label: 官方公开数据
+    note: 允许商用与再分发；BIS / ECB / Fed Board / TWSE / TPEx 要求署名，ECB 数据不得修改。
+  B:
+    commercial_use: verify
+    redistribute: deny
+    label: 可下载但条款受限
+    note: 默认禁止商用；必须逐项核实条款，且不得再分发。仅当显式设置
+          TICKHUB_US_ALLOW_TIER_B_COMMERCIAL=true 时放行，并在信封中记录合规警告。
+  C:
+    commercial_use: deny
+    redistribute: deny
+    label: 需事先许可 / 仅个人研究
+    note: 商用需事先书面批准与许可协议；代码仅供个人研究调用。
+  D:
+    commercial_use: deny
+    redistribute: deny
+    label: 禁止自动访问
+    note: 条款禁止未经许可的自动化访问；仅个人研究，风险自负。
+  X:
+    commercial_use: deny
+    redistribute: deny
+    label: 已排除
+    note: 条款明确禁止机器人/爬虫，且“无论是否牟利”，因此不提供适配器。
+
+sources:
+  # ---------------- Tier S ----------------
+  local:
+    tier: S
+    label: 本地计算（MA / EMA / MACD / RSI / KDJ / BOLL）
+    terms: "由本工具基于已获取的 K 线自行计算，不引用第三方衍生数据"
+    note: 底层 K 线的数据源合规等级随指标结果一并记录在 DataEnvelope.underlying。
+  sec_edgar:
+    tier: S
+    label: SEC EDGAR
+    terms: "Anyone can access and download this information for free; We allow scripted access（硬上限 10 req/s，需声明 User-Agent）"
+    attribution: required
+  treasury:
+    tier: S
+    label: US Treasury
+    terms: "美国政府公开数据（public domain）"
+  cftc:
+    tier: S
+    label: CFTC
+    terms: "美国政府公开数据（public domain）"
+  federal_reserve:
+    tier: S
+    label: Federal Reserve Board
+    terms: "public domain"
+  ny_fed:
+    tier: S
+    label: Federal Reserve Bank of New York
+    terms: "personal or business purposes, through an automated process"
+    attribution: required
+  bis:
+    tier: S
+    label: Bank for International Settlements
+    terms: "unrestricted"
+    attribution: required
+  ecb:
+    tier: S
+    label: European Central Bank
+    terms: "reused free of charge"
+    attribution: required
+    note: 数据不得修改。
+  eia:
+    tier: S
+    label: US EIA（官方库存数据）
+    terms: "public domain"
+  twse:
+    tier: S
+    label: 台湾证券交易所
+    terms: "政府开放资料授权（Open Government Data License），允许任何目的、非专属、不可撤回、免权利金"
+    attribution: required
+    note: 转载须保持完整，不得任意增删。
+  tpex:
+    tier: S
+    label: 台湾柜买中心
+    terms: "OpenAPI 页面欢迎整合；网站条款之知识产权章节豁免已授权开放资料平台之数据"
+    attribution: required
+    note: 转载须保持完整，不得任意增删。
+
+  # ---------------- Tier B ----------------
+  finra:
+    tier: B
+    label: FINRA
+    terms: "禁止 data mining, scraping or harvesting tools（含 robots）；仅限 non-commercial use"
+  eia_spot:
+    tier: B
+    label: US EIA 现货价（Refinitiv 转授权）
+    terms: "WTI/Brent/Henry Hub 现货价来自 Refinitiv, an LSEG business；超出合理使用须取得版权方书面许可"
+
+  # ---------------- Tier C ----------------
+  cboe:
+    tier: C
+    label: CBOE
+    terms: "requires approval in advance + execution of a license agreement"
+  eastmoney:
+    tier: C
+    label: 东方财富
+    terms: "网站前端接口，仅供个人研究"
+  sina:
+    tier: C
+    label: 新浪财经
+    terms: "网站前端接口，仅供个人研究"
+  tencent:
+    tier: C
+    label: 腾讯行情
+    terms: "网站前端接口，仅供个人研究"
+  polygon:
+    tier: C
+    label: Polygon.io
+    terms: "需订阅密钥；商用须遵守其订阅计划与再分发条款"
+    commercial_basis:
+      env: POLYGON_API_KEY
+      note: "持有有效订阅密钥即视为已取得许可，商用范围以订阅协议为准；无密钥时按 Tier C 拒绝。"
+
+  # ---------------- Tier D ----------------
+  yahoo:
+    tier: D
+    label: Yahoo Finance
+    terms: "using any automated means… for any purpose without our express, prior permission"
+  nasdaq:
+    tier: D
+    label: Nasdaq
+    terms: "any process, whether automated or manual, to capture data… for any reason"
+
+  # ---------------- Tier X（无适配器） ----------------
+  hkex:
+    tier: X
+    label: HKEX（CCASS）
+    terms: "禁止 any 'robot', 'bot', 'spider', 'scraper'…，无论是否牟利"
+    adapter: none
