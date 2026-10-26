@@ -186,7 +186,7 @@ th-us quote get AAPL --output json      # stdout 只有 JSON，日志走 stderr
 
 ### 一键使用
 
-四种分发包一套代码：PyPI wheel / sdist、GitHub Release 附件、GHCR 容器镜像、源码安装。v1.0.0 的 PyPI 包与 Release 附件均已上线；发布流程与镜像用法见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+四种分发包一套代码：PyPI wheel / sdist、GitHub Release 附件、GHCR 容器镜像、源码安装。v1.0.0 的 PyPI 包与 Release 附件均已上线；容器镜像尚未推送。发布流程与镜像用法见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
 
 ```bash
 # PyPI
@@ -617,7 +617,7 @@ Dockerfile              镜像（非 root，默认 stdio）
 
 **不用 MCP 客户端能用吗？** 能。`th-us` CLI 覆盖全部端点，`--output json` 后可直接喂给任何脚本。
 
-**现在能从 PyPI 装吗？有没有 Docker 镜像？** 能——`pip install tickhub-us` 装到的就是 1.0.0（[PyPI](https://pypi.org/project/tickhub-us/)），同一份 wheel / sdist 也挂在 [v1.0.0 Release](https://github.com/QuotaFuse-ai/TickHub-US/releases/tag/v1.0.0) 上。容器镜像由 `docker.yml` 构建并推到 `ghcr.io/quotafuse-ai/tickhub-us`。发布都是手动 dispatch 一次 `publish.yml` / `docker.yml`，步骤见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+**现在能从 PyPI 装吗？有没有 Docker 镜像？** PyPI 能——`pip install tickhub-us` 装到的就是 1.0.0（[PyPI](https://pypi.org/project/tickhub-us/)），同一份 wheel / sdist 也挂在 [v1.0.0 Release](https://github.com/QuotaFuse-ai/TickHub-US/releases/tag/v1.0.0) 上。容器镜像还没发布：`docker.yml` 负责构建并推到 `ghcr.io/quotafuse-ai/tickhub-us`，目前尚未触发。暂时请用 PyPI 或源码安装，步骤见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
 
 ## 版本
 
