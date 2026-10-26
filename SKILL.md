@@ -30,8 +30,9 @@ th-us --version                 # 自检
 th-us mcp tools                 # 列出全部工具
 ```
 
-要求 Python ≥ 3.11。运行前确保 `config/sources.yaml` 与 `config/compliance.yaml` 可被找到
-（仓库根目录运行，或设置 `TICKHUB_US_CONFIG_DIR`）。
+要求 Python ≥ 3.11。源码安装时，运行前确保 `config/sources.yaml` 与 `config/compliance.yaml` 可被找到
+（仓库根目录运行，或设置 `TICKHUB_US_CONFIG_DIR`）；wheel 安装自带这两个文件，任意目录可直接运行。
+容器镜像同样可用：`docker run --rm -i ghcr.io/quotafuse-ai/tickhub-us mcp stdio`。
 
 ## 客户端接入
 

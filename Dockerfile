@@ -10,7 +10,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md LICENSE ./
 COPY config ./config
 COPY src ./src
 
@@ -19,4 +19,5 @@ RUN pip install . \
 
 USER tickhub
 
-ENTRYPOINT ["th-us", "mcp", "stdio"]
+ENTRYPOINT ["th-us"]
+CMD ["mcp", "stdio"]

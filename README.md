@@ -1,37 +1,146 @@
 <h1 align="center">TickHub-US</h1>
 
 <p align="center">
-  <b>面向 AI Agent 的美股 / 港股数据引擎</b><br>
-  独立 MCP Server（stdio + Streamable HTTP）· <code>th-us</code> CLI · 合规分级强制拦截 · 分级缓存 · 统一 DataEnvelope
+  <b>面向 AI Agent 的美股 / 港股数据引擎</b>
+</p>
+
+<p align="center">
+  41 个 MCP 工具 · 34 个数据域 · 20 个数据源 · 合规分级强制拦截
+</p>
+
+<p align="center">
+  行情 K 线 · 基本面三表 · 期权与异动 · 卖空 · SEC 申报 / 13F · 宏观利率 · 能源
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0"></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white" alt="Python 3.11+"></a>
-  <a href="#版本"><img src="https://img.shields.io/badge/version-1.0.0-2ea44f.svg" alt="version 1.0.0"></a>
-  <a href="#mcp-工具"><img src="https://img.shields.io/badge/MCP_tools-41-2ea44f.svg" alt="41 MCP tools"></a>
-  <a href="#数据源"><img src="https://img.shields.io/badge/数据源-20-2ea44f.svg" alt="20 data sources"></a>
-  <a href="#测试与-ci"><img src="https://img.shields.io/badge/tests-251-2ea44f.svg" alt="251 tests"></a>
+  <a href="https://pypi.org/project/tickhub-us/"><img src="https://img.shields.io/pypi/v/tickhub-us.svg" alt="PyPI"></a>
+  <a href="https://github.com/QuotaFuse-ai/TickHub-US/pkgs/container/tickhub-us"><img src="https://img.shields.io/badge/ghcr.io-tickhub--us-2496ED?logo=docker&logoColor=white" alt="GHCR"></a>
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white" alt="Python 3.11+">
+  <a href="https://github.com/QuotaFuse-ai/TickHub-US/stargazers"><img src="https://img.shields.io/github/stars/QuotaFuse-ai/TickHub-US?style=social" alt="Stars"></a>
+  <br>
+  <img src="https://img.shields.io/badge/MCP_tools-41-2ea44f.svg" alt="41 MCP tools">
+  <img src="https://img.shields.io/badge/数据源-20-2ea44f.svg" alt="20 data sources">
+  <img src="https://img.shields.io/badge/tests-251-2ea44f.svg" alt="251 tests">
+  <img src="https://img.shields.io/badge/商用分级-S%20%2F%20B%20%2F%20C%20%2F%20D-2ea44f.svg" alt="Compliance tiers">
 </p>
 
+---
+
 <p align="center">
+  <a href="#简介">简介</a> ·
+  <a href="#30-秒上手">30 秒上手</a> ·
+  <a href="#为什么选它">为什么选它</a> ·
   <a href="#架构">架构</a> ·
   <a href="#合规分级">合规分级</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#端点">端点</a> ·
   <a href="#数据源">数据源</a> ·
   <a href="#mcp-工具">MCP 工具</a> ·
+  <a href="#测试与-ci">测试与 CI</a> ·
   <a href="#faq">FAQ</a>
 </p>
 
-> **TickHub-US 把分散在 20 个数据源里的美股 / 港股原始数据，整合成 AI Agent 直接能用的工具集。** 你不用再背东财 secid 前缀、Yahoo crumb 鉴权流程、SEC EDGAR 的 CIK 映射、BIS 的 SDMX key——全部封装好了。
->
-> 前身是单文件 Skill [global-stock-data](https://github.com/simonlin1212/global-stock-data)。本仓库把它重写为可部署的独立服务，并补上参考实现里没有的三件事：**进程隔离**、**合规拦截**、**缓存降级**。
+## 简介
+
+**TickHub-US 只做一件事：把分散在 20 个数据源里的美股 / 港股数据，变成模型可以直接调用的结构化工具。**
+
+产品围绕一条规则构建 —— **每个数字都必须来自一次工具调用，并且带上出处与合规级别**。
+行情、K 线、基本面三表、期权链与异动、卖空、SEC 申报与 13F、宏观利率、能源，全部由服务端抓取、
+归一化、缓存，返回统一的 [`DataEnvelope`](#dataenvelope)，而不是让模型回忆或自己拼 URL。
+
+- **41 个 MCP 工具 + `th-us` CLI 十组命令**，共用同一套返回结构，换入口不换语义。
+- **20 个数据源按 S / B / C / D 五档分级**（另有 X 档永不接入），商用调用时强制拦截，
+  拒绝即不降级——不会在不知情的情况下触犯条款。
+- **降级顺序与合规等级都写在 YAML**，换源是一次配置变更，不是一次发版。
+- **Redis 可选**，没有时自动退化为进程内 LRU，并显式 warning；缓存键区分商用 / 非商用。
+- **wheel 自带 config**，`pip install` 后在任何目录都能直接运行，不依赖仓库布局。
+- 前身是单文件 Skill [global-stock-data](https://github.com/simonlin1212/global-stock-data)；
+  本仓库把它重写为可部署的独立服务，并补上参考实现里没有的三件事：
+  **进程隔离**、**合规拦截**、**缓存降级**。
 
 > *本工具只分发**代码，不分发市场数据**。数据由使用者自行按各源条款获取。商用请只依赖 S 级源。*
 
-- 包名：`tickhub-us` · Python 包：`tickhub_us` · CLI：`th-us`
-- 仓库：<https://github.com/QuotaFuse-ai/TickHub-US>（v1.0.0 尚未发布到 PyPI，请从仓库安装）
+---
+
+## 30 秒上手
+
+**报价类工具不需要任何密钥**；只有 SEC 类接口要求一个真实联系人邮箱（EDGAR 对 User-Agent 的硬性规定），
+不是一个 token。
+
+```bash
+git clone https://github.com/QuotaFuse-ai/TickHub-US.git && pip install -e TickHub-US
+# PyPI 上架后一行替代：pip install tickhub-us
+export SEC_CONTACT="Zhang San zhangsan@example.com"
+th-us quote get AAPL
+```
+
+2026-10-26 实网返回（`--output json`，节选）：
+
+```json
+{
+  "schema_version": "1.0",
+  "domain": "quote_us",
+  "symbol": "AAPL",
+  "payload": {
+    "symbol": "AAPL",
+    "price": 347.725,
+    "prev_close": 348.22,
+    "change_pct": -0.14,
+    "high_52w": 348.36,
+    "low_52w": 242.89,
+    "pe": 41.89,
+    "eps": 8.3,
+    "currency": "USD"
+  },
+  "source": "sina",
+  "compliance_tier": "C",
+  "freshness": "realtime",
+  "fetched_at": "2026-10-26T08:07:11Z",
+  "cache_hit": false,
+  "trace_id": "e39a31c0c2fe4726",
+  "warnings": ["新浪财经 属 Tier C：商用需事先书面许可，当前为非商用调用。"],
+  "attempts": [
+    { "provider": "polygon", "status": "disabled" },
+    { "provider": "sina", "status": "ok", "tier": "C" }
+  ]
+}
+```
+
+注意 `compliance_tier` 与 `warnings`：这条数据走新浪，属 Tier C，**商用调用会被直接拒绝**；
+`attempts` 里能看到 Polygon 因未配置密钥被跳过、新浪命中。这就是「合规落到调用点」的样子。
+
+同一套工具，换个子命令就能取别的东西：
+
+```bash
+th-us quote get 00700                     # 港股行情
+th-us quote kline TSLA --interval 1d      # K 线（美股回溯至 1984）
+th-us quote indicators AAPL               # MA / MACD / RSI / BOLL
+th-us finance report AAPL --type 10-K     # SEC 申报（需 SEC_CONTACT）
+th-us finance 13f 1067983                 # 伯克希尔 13F
+th-us options flow SPY                    # 期权异动（vol/OI > 1 = 新建仓）
+th-us macro rates                         # 全球央行政策利率
+th-us mcp tools                           # 41 个工具名
+th-us source list                         # 各域降级链与级别
+```
+
+---
+
+## 为什么选它
+
+一句话：**直接调接口给你自由，聚合库给你广度，TickHub-US 给你「模型不写代码也能取到带出处、带合规口径的数」。**
+
+| 维度 | TickHub-US | 直接调 Yahoo / 东财等接口 | akshare 等聚合库（A 股为主） | 付费行情 API |
+|---|---|---|---|---|
+| 调用方式 | MCP 工具、CLI、Python 共用一套返回 | 自己拼 URL、带 UA / crumb、解析字段 | Python 函数，每个函数一套 DataFrame | SDK + 订阅 |
+| 鉴权 | 报价零密钥；SEC 只要一个联系邮箱 | 自己维护 cookie、crumb、限流 | 零密钥 | 注册、付费、配额 |
+| 合规口径 | 每个源标 S / B / C / D，商用自动拦截并留痕 | 条款要自己读、自己判断 | 不区分 | 合同覆盖 |
+| 多源降级 | YAML 声明降级链，逐源记录 attempts | 自己写重试与兜底 | 部分支持 | 通常单源 |
+| 美股 / 港股 | 美股 + 港股行情 K 线，台股走官方开放数据 | 各站接口不一致 | 以 A 股为主 | 按套餐另购 |
+| SEC 深度 | 申报、全文检索、XBRL、13F、Form 4，全免费 S 级 | 需自己实现 CIK 映射与分页 | 部分覆盖 | 通常另购 |
+| 返回结构 | 统一 envelope，含 `source` / `freshness` / `trace_id` | 原始 JSON，字段随源站改版 | DataFrame | 各家不同 |
+| 许可 / 成本 | Apache-2.0，数据按各源条款 | — | MIT / Apache | 商业订阅 |
+| 最适合 | AI Agent、需要合规口径的自动化取数 | 深度定制单个接口 | 数据探索与研究 | 有 SLA 要求的机构 |
 
 ---
 
@@ -93,10 +202,12 @@ TickHub-US · MCP Server + CLI · v1.0.0
 
 ## 快速开始
 
+包名 `tickhub-us` · Python 包 `tickhub_us` · CLI `th-us`。要求 Python ≥ 3.11。
+
 **3 步，2 分钟。**
 
 ```bash
-# 1. 安装（当前从仓库装；PyPI 发布后 pip install tickhub-us 即可）
+# 1. 安装（PyPI 上架后一行即可：pip install tickhub-us）
 git clone https://github.com/QuotaFuse-ai/TickHub-US.git
 pip install -e TickHub-US
 # 开发环境
@@ -110,7 +221,14 @@ th-us quote get AAPL
 th-us quote get AAPL --output json      # stdout 只有 JSON，日志走 stderr
 ```
 
-要求 Python ≥ 3.11。容器：`docker build -t tickhub-us .`，默认以 stdio 传输运行（由 MCP 客户端拉起）。
+四种分发包一套代码：PyPI wheel / sdist、GitHub Release 附件、GHCR 容器镜像、源码安装。
+发布流程与镜像用法见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+
+```bash
+# 容器（默认 stdio，由 MCP 客户端拉起）
+docker build -t tickhub-us .
+docker run --rm -i -e SEC_CONTACT="Zhang San zhangsan@example.com" tickhub-us
+```
 
 ### 接进 MCP 客户端
 
@@ -432,6 +550,15 @@ CI（`.github/workflows/ci.yml`）：
 - `push` / `pull_request`：Python 3.11 + 3.12 矩阵，跑 `ruff` → `compileall` → 离线测试，作为合并门禁；
 - `workflow_dispatch` 勾选 `live`：额外起一个联网作业，读取仓库变量 `SEC_CONTACT`（未配置则用例自动 skip，作业不会红）与可选 secret `POLYGON_API_KEY`，并默认跳过境外不通的东财用例。**写代码不需要密钥，跑的时候才需要。**
 
+发布用两个**手动**工作流，都不会在 push 时自动触发：
+
+| 工作流 | 做什么 |
+|---|---|
+| `publish.yml` | `python -m build` → `twine check --strict` → 在干净 venv 里跑一遍 wheel（证明不依赖源码树）→ 发 TestPyPI 或 PyPI（OIDC 可信发布，无 token）→ 发布到 PyPI 时顺手建 GitHub Release 并附上 sdist / wheel |
+| `docker.yml` | 构建并推送 `ghcr.io/quotafuse-ai/tickhub-us`（版本标签 + `latest`）→ 拉起来跑真机冒烟：匿名 `/healthz` 通、带 Bearer 的 MCP `initialize` 通、不带 token 的 POST 返回 401 |
+
+操作步骤与首次发布需要的两件事（PyPI 注册 + 可信发布配置）见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+
 出口需要代理时，设置 `HTTPS_PROXY` / `HTTP_PROXY` 即可（`requests` 默认读取环境代理）；
 代理口令只放环境变量，不要写进 `config/` 或提交到仓库。
 
@@ -453,10 +580,10 @@ src/tickhub_us/
 tests/
   contract/             接口契约 + 联网冒烟 + 缺陷回归
   compliance/           合规拦截测试
-docs/                   规格、决策记录、任务产出
+docs/                   规格、决策记录、任务产出、PUBLISHING.md（发布手册）
 SKILL.md                Agent 侧的瘦身 SOP
-Dockerfile              stdio 专用镜像（非 root）
-.github/workflows/      CI：ruff + compileall + 离线测试 + 手动联网作业
+Dockerfile              镜像（非 root，默认 stdio）
+.github/workflows/      ci.yml（门禁）+ publish.yml（PyPI / Release）+ docker.yml（GHCR）
 ```
 
 ## FAQ
@@ -479,13 +606,16 @@ Dockerfile              stdio 专用镜像（非 root）
 
 **不用 MCP 客户端能用吗？** 能。`th-us` CLI 覆盖全部端点，`--output json` 后可直接喂给任何脚本。
 
+**现在能从 PyPI 装吗？有没有 Docker 镜像？** 代码侧已就绪：`publish.yml` 会产出 sdist / wheel / GitHub Release 附件，`docker.yml` 会产出 `ghcr.io/quotafuse-ai/tickhub-us`。首次上传需要仓库主人在 PyPI 注册项目并配置可信发布（一次性，约两分钟），之后在工作流里点一下即可发布。在此之前请用源码安装，见 [快速开始](#快速开始) 与 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+
 ## 版本
 
 **v1.0.0**（2026-10-26）— 首个正式版本，功能与参考实现的端点对齐（DEC-011），并完成全端点联网复验：
 
 - 修复 BIS 政策利率恒 404（SDMX key 重复拼接 `D.` 维度）；
 - 修复 Yahoo quoteSummary 全线 401（非浏览器 UA 被回 429，取不到 crumb 导致；同时改为失败后冷却重试而非永久放弃）；
-- 新增 13 个联网冒烟用例与 `workflow_dispatch` 联网作业，两个缺陷各有离线回归用例。
+- 新增 13 个联网冒烟用例与 `workflow_dispatch` 联网作业，两个缺陷各有离线回归用例；
+- 打通四条分发包：PyPI wheel / sdist（`publish.yml`，PEP 639 元数据）、GitHub Release 附件、GHCR 容器镜像（`docker.yml`，含真机冒烟）、源码安装；wheel 自带 `config/`，装完在任意目录都能跑。
 
 ---
 

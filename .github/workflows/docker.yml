@@ -1,0 +1,120 @@
+name: Docker image (GHCR)
+
+# 手动触发：推提交或打 tag 都不会发布镜像。
+# 镜像名固定为 ghcr.io/quotaFuse-ai/tickhub-us 的小写形式，打 pyproject 版本号与 latest。
+# 第二个作业拉取已发布镜像、以 HTTP 传输启动并发一次 MCP initialize，
+# 因此绿灯代表容器真的在 /mcp 上提供服务，而不只是构建成功。
+
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Build platforms (arm64 doubles the build time)"
+        type: choice
+        options:
+          - linux/amd64
+          - linux/amd64,linux/arm64
+        default: linux/amd64
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image name and version
+        id: meta
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          {
+            echo "tags<<EOF"
+            echo "$image:$version"
+            echo "$image:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Publishing $image:$version"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: ${{ inputs.platforms }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.title=TickHub-US
+            org.opencontainers.image.description=TickHub-US: US/HK market data MCP server and CLI for AI agents
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.licenses=Apache-2.0
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  smoke:
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 非回环绑定必须带鉴权并声明 Host 白名单（DEC-007），因此这里显式给 token。
+      - name: Run the published image over Streamable HTTP
+        run: |
+          ref="${{ needs.image.outputs.image }}:${{ needs.image.outputs.version }}"
+          docker pull "$ref"
+          docker run -d --name tickhub-us -p 127.0.0.1:8001:8001 \
+            -e MCP_HTTP_TOKEN=smoke-token \
+            -e MCP_HTTP_ALLOWED_HOSTS=127.0.0.1:8001 \
+            "$ref" mcp http --host 0.0.0.0 --port 8001
+
+      - name: /healthz answers anonymously
+        run: |
+          for _ in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8001/healthz; then exit 0; fi
+            sleep 2
+          done
+          echo "healthz did not come up"; exit 1
+
+      - name: MCP initialize with Bearer token
+        run: |
+          curl -sf -o /tmp/init.txt -X POST http://127.0.0.1:8001/mcp \
+            -H 'Authorization: Bearer smoke-token' \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}'
+          cat /tmp/init.txt
+          grep -q '"result"' /tmp/init.txt
+
+      - name: Unauthenticated request is rejected
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8001/mcp \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}')
+          echo "status=$code"
+          test "$code" = "401"
+
+      - name: Container logs
+        if: always()
+        run: docker logs tickhub-us 2>&1 | tail -40
