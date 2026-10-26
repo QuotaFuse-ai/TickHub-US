@@ -25,7 +25,7 @@ from ..cache.store import get_cache
 from ..compliance.guard import evaluate, require_bool
 from ..compliance.registry import get_registry
 from ..core.config import get_settings
-from ..core.errors import TickHubError
+from ..core.errors import BadRequest, TickHubError
 from ..filings.service import (
     filing_stream,
     filings,
@@ -39,11 +39,20 @@ from ..fundamental.service import (
     analyst_estimates,
     financial_statements,
     institutional_holders,
+    key_indicators,
     key_statistics,
 )
-from ..market.energy import energy_prices
-from ..market.macro import treasury_yield_curve
-from ..market.rates import policy_rates
+from ..market.energy import energy_inventories, energy_prices
+from ..market.macro import cftc_cot, earnings_calendar, fiscal_data, treasury_yield_curve
+from ..market.rates import (
+    ecb_fx,
+    ecb_key_rates,
+    ecb_series,
+    ecb_yield_curve,
+    fed_data,
+    nyfed_rates,
+    policy_rates,
+)
 from ..market.service import (
     fund_flow,
     indicators,
@@ -52,10 +61,16 @@ from ..market.service import (
     news,
     quote,
     short_interest,
+    short_interest_all,
+    short_interest_ranking,
+    short_volume_all,
+    short_volume_ranking,
+    short_volume_series,
+    vix_term_structure,
     volatility,
 )
-from ..market.taiwan import tw_stock
-from ..market.tools import stock_search
+from ..market.taiwan import tw_market, tw_stock
+from ..market.tools import stock_search, ticker_to_cik
 from ..options.service import options_chain, options_flow
 from ..providers import available_providers
 from .security import transport_security_settings, wrap_app
@@ -111,6 +126,11 @@ def _run(fn: Callable[..., Any], /, **kwargs: Any) -> dict[str, Any]:
         return fn(**kwargs)
     except TickHubError as exc:
         raise ToolError(_tool_text(exc)) from exc
+
+
+def _bad_request(message: str, hint: str | None = None) -> ToolError:
+    """工具内参数组合校验失败，与域层的 E_BAD_REQUEST 保持同一正文格式。"""
+    return ToolError(_tool_text(BadRequest(message, hint=hint)))
 
 
 # --------------------------------------------------------------------------- #
@@ -241,37 +261,125 @@ def register_tools(server: MCPServer) -> MCPServer:
         return _run(fund_flow, symbol=symbol, limit=limit, commercial_use=flag)
 
     @server.tool(
-        name="th_us_get_short_interest",
-        description="卖空兴趣（FINRA）：symbol 最新一期或指定日期，periods 控制回溯期数。",
+        name="th_us_get_short_volume",
+        description=(
+            "FINRA Reg SHO 卖空成交量：scope=symbol 取个股多日序列（需 symbol），"
+            "scope=all 取全市场当日快照，scope=rank 取卖空占比排行（min_total 过滤小票）。"
+        ),
     )
-    def th_us_get_short_interest(
-        symbol: str,
-        periods: int = 1,
+    def th_us_get_short_volume(
+        symbol: str | None = None,
+        scope: str = "symbol",
+        days: int = 5,
         date: str | None = None,
+        market: str | None = None,
+        min_total: float = 1_000_000,
+        top: int = 20,
         *,
         commercial_use: CommercialFlag,
     ) -> dict[str, Any]:
         flag = _guard(commercial_use)
-        return _run(
-            short_interest,
-            symbol=symbol,
-            periods=periods,
-            date=date,
-            commercial_use=flag,
+        name = scope.strip().lower()
+        if name == "symbol":
+            if not symbol:
+                raise _bad_request("scope=symbol 需要提供 symbol", hint="全市场请用 scope=all，排行用 scope=rank。")
+            return _run(
+                short_volume_series,
+                symbol=symbol,
+                days=days,
+                market=market,
+                commercial_use=flag,
+            )
+        if name == "all":
+            return _run(
+                short_volume_all, date=date, market=market, commercial_use=flag
+            )
+        if name == "rank":
+            return _run(
+                short_volume_ranking,
+                date=date,
+                market=market,
+                min_total=min_total,
+                top=top,
+                commercial_use=flag,
+            )
+        raise _bad_request(
+            f"scope 只能是 symbol / all / rank，收到 {scope!r}",
+            hint="个股序列用 symbol，全市场快照用 all，排行用 rank。",
+        )
+
+    @server.tool(
+        name="th_us_get_short_interest",
+        description=(
+            "FINRA 卖空余额（双周存量）：scope=symbol 取个股最近 periods 期（需 symbol），"
+            "scope=all 取全市场快照，scope=rank 取排行（by=days_to_cover/short_interest/change_pct）。"
+        ),
+    )
+    def th_us_get_short_interest(
+        symbol: str | None = None,
+        scope: str = "symbol",
+        periods: int = 1,
+        date: str | None = None,
+        by: str = "days_to_cover",
+        min_avg_volume: float = 500_000,
+        top: int = 20,
+        include_otc: bool = False,
+        *,
+        commercial_use: CommercialFlag,
+    ) -> dict[str, Any]:
+        flag = _guard(commercial_use)
+        name = scope.strip().lower()
+        if name == "symbol":
+            if not symbol:
+                raise _bad_request("scope=symbol 需要提供 symbol", hint="全市场请用 scope=all，排行用 scope=rank。")
+            return _run(
+                short_interest,
+                symbol=symbol,
+                periods=periods,
+                date=date,
+                commercial_use=flag,
+            )
+        if name == "all":
+            return _run(short_interest_all, date=date, commercial_use=flag)
+        if name == "rank":
+            return _run(
+                short_interest_ranking,
+                date=date,
+                by=by,
+                min_avg_volume=min_avg_volume,
+                top=top,
+                include_otc=include_otc,
+                commercial_use=flag,
+            )
+        raise _bad_request(
+            f"scope 只能是 symbol / all / rank，收到 {scope!r}",
+            hint="个股序列用 symbol，全市场快照用 all，排行用 rank。",
         )
 
     @server.tool(
         name="th_us_get_volatility",
-        description="CBOE 波动率指数历史序列，index 例如 VIX / VIX9D / VIX3M。",
+        description=(
+            "CBOE 波动率指数历史序列（index 例如 VIX / VIX9D / VIX3M）；"
+            "term_structure=true 时返回期限结构（contango / backwardation / mixed），"
+            "indices 指定参与比较的期限，逗号分隔。"
+        ),
     )
     def th_us_get_volatility(
         index: str = "VIX",
         start: str | None = None,
         end: str | None = None,
+        term_structure: bool = False,
+        indices: str | None = None,
         *,
         commercial_use: CommercialFlag,
     ) -> dict[str, Any]:
         flag = _guard(commercial_use)
+        if term_structure:
+            return _run(
+                vix_term_structure,
+                indices=indices or ("VIX9D", "VIX", "VIX3M", "VIX6M", "VIX1Y"),
+                commercial_use=flag,
+            )
         return _run(
             volatility, index=index, start=start, end=end, commercial_use=flag
         )
@@ -286,6 +394,29 @@ def register_tools(server: MCPServer) -> MCPServer:
         flag = _guard(commercial_use)
         return _run(tw_stock, code=code, commercial_use=flag)
 
+    @server.tool(
+        name="th_us_get_taiwan_market",
+        description=(
+            "台股全市场数据集：dataset 取 quotes / valuation / revenue / profile / "
+            "margin / exdividend / dividend，market 取 twse / tpex / auto。"
+        ),
+    )
+    def th_us_get_taiwan_market(
+        dataset: str = "quotes",
+        market: str = "twse",
+        code: str | None = None,
+        *,
+        commercial_use: CommercialFlag,
+    ) -> dict[str, Any]:
+        flag = _guard(commercial_use)
+        return _run(
+            tw_market,
+            dataset=dataset,
+            market=market,
+            code=code,
+            commercial_use=flag,
+        )
+
     # ----------------------------------------------------------------------- #
     # 基本面
     # ----------------------------------------------------------------------- #
@@ -299,6 +430,21 @@ def register_tools(server: MCPServer) -> MCPServer:
     ) -> dict[str, Any]:
         flag = _guard(commercial_use)
         return _run(key_statistics, symbol=symbol, commercial_use=flag)
+
+    @server.tool(
+        name="th_us_get_key_indicators",
+        description="东财关键财务指标（ROE、毛利率、负债率等，中文科目口径），page_size 控制期数。",
+    )
+    def th_us_get_key_indicators(
+        symbol: str,
+        page_size: int = 4,
+        *,
+        commercial_use: CommercialFlag,
+    ) -> dict[str, Any]:
+        flag = _guard(commercial_use)
+        return _run(
+            key_indicators, symbol=symbol, page_size=page_size, commercial_use=flag
+        )
 
     @server.tool(
         name="th_us_get_financial_statements",
@@ -521,6 +667,14 @@ def register_tools(server: MCPServer) -> MCPServer:
         )
 
     @server.tool(
+        name="th_us_lookup_cik",
+        description="美股 ticker → 10 位 SEC CIK，便于后续按 CIK 查申报与 13F。",
+    )
+    def th_us_lookup_cik(symbol: str, *, commercial_use: CommercialFlag) -> dict[str, Any]:
+        flag = _guard(commercial_use)
+        return _run(ticker_to_cik, symbol=symbol, commercial_use=flag)
+
+    @server.tool(
         name="th_us_screen_market",
         description="XBRL frames 全市场横截面筛选（如研发费用、营收），tag 支持中文别名。",
     )
@@ -572,6 +726,121 @@ def register_tools(server: MCPServer) -> MCPServer:
         return _run(policy_rates, areas=areas, last=last, commercial_use=flag)
 
     @server.tool(
+        name="th_us_get_cot",
+        description="CFTC 持仓报告（COT），按报告日倒序；market 按品种名过滤（如 GOLD）。",
+    )
+    def th_us_get_cot(
+        limit: int = 20,
+        market: str | None = None,
+        *,
+        commercial_use: CommercialFlag,
+    ) -> dict[str, Any]:
+        flag = _guard(commercial_use)
+        return _run(
+            cftc_cot, limit=limit, market_contains=market, commercial_use=flag
+        )
+
+    @server.tool(
+        name="th_us_get_earnings_calendar",
+        description="Nasdaq 财报日历（Tier D，仅限个人研究）；date 为 YYYY-MM-DD，缺省取最近交易日。",
+    )
+    def th_us_get_earnings_calendar(
+        date: str | None = None, *, commercial_use: CommercialFlag
+    ) -> dict[str, Any]:
+        flag = _guard(commercial_use)
+        return _run(earnings_calendar, date=date, commercial_use=flag)
+
+    @server.tool(
+        name="th_us_get_ecb",
+        description=(
+            "ECB 官方数据：kind=key_rates 关键利率、kind=fx 欧元参考汇率、"
+            "kind=curve 欧元区收益率曲线、kind=series 任意数据流（需 flow+key）。"
+        ),
+    )
+    def th_us_get_ecb(
+        kind: str = "fx",
+        currencies: str | None = None,
+        curve: str = "AAA",
+        tenors: str = "3M,1Y,2Y,5Y,10Y,30Y",
+        flow: str | None = None,
+        key: str | None = None,
+        last: int = 1,
+        *,
+        commercial_use: CommercialFlag,
+    ) -> dict[str, Any]:
+        flag = _guard(commercial_use)
+        name = kind.strip().lower()
+        if name == "fx":
+            return _run(ecb_fx, currencies=currencies, last=last, commercial_use=flag)
+        if name in ("key_rates", "rates"):
+            return _run(ecb_key_rates, last=last, commercial_use=flag)
+        if name in ("curve", "yield_curve"):
+            return _run(
+                ecb_yield_curve,
+                curve=curve,
+                tenors=tenors,
+                last=last,
+                commercial_use=flag,
+            )
+        if name == "series":
+            if not flow or not key:
+                raise _bad_request(
+                    "kind=series 需要同时提供 flow 与 key",
+                    hint="用 `th-us macro ecb-series <flow> <key>` 的同一套参数。",
+                )
+            return _run(
+                ecb_series, flow=flow, key=key, last=last, commercial_use=flag
+            )
+        raise _bad_request(
+            f"kind 只能是 key_rates / fx / curve / series，收到 {kind!r}"
+        )
+
+    @server.tool(
+        name="th_us_get_nyfed_rates",
+        description="纽约联储参考利率：rate 取 sofr / effr / obfr / tgcr / bgcr 等，last 控制期数。",
+    )
+    def th_us_get_nyfed_rates(
+        rate: str = "sofr", last: int = 5, *, commercial_use: CommercialFlag
+    ) -> dict[str, Any]:
+        flag = _guard(commercial_use)
+        return _run(nyfed_rates, rate=rate, last=last, commercial_use=flag)
+
+    @server.tool(
+        name="th_us_get_fed_releases",
+        description="美联储 Board 数据包：release 取 H10（美元汇率）或 H6（货币存量），last 控制期数。",
+    )
+    def th_us_get_fed_releases(
+        release: str = "H10", last: int = 10, *, commercial_use: CommercialFlag
+    ) -> dict[str, Any]:
+        flag = _guard(commercial_use)
+        return _run(fed_data, release=release, last=last, commercial_use=flag)
+
+    @server.tool(
+        name="th_us_get_treasury_fiscal",
+        description=(
+            "美国财政部 FiscalData：dataset 取 debt（国债余额）/ avg_interest_rate / "
+            "auction / rates 等，limit 控制行数。"
+        ),
+    )
+    def th_us_get_treasury_fiscal(
+        dataset: str = "debt",
+        limit: int = 20,
+        filters: str | None = None,
+        fields: str | None = None,
+        *,
+        commercial_use: CommercialFlag,
+    ) -> dict[str, Any]:
+        flag = _guard(commercial_use)
+        return _run(
+            fiscal_data,
+            dataset=dataset,
+            limit=limit,
+            filters=filters,
+            fields=fields,
+            commercial_use=flag,
+        )
+
+    @server.tool(
         name="th_us_get_energy_prices",
         description="能源价格序列（EIA），series 例如 WTI / BRENT / HENRY_HUB。",
     )
@@ -586,6 +855,16 @@ def register_tools(server: MCPServer) -> MCPServer:
         return _run(
             energy_prices, series=series, start=start, end=end, commercial_use=flag
         )
+
+    @server.tool(
+        name="th_us_get_energy_inventories",
+        description="EIA 最新一周原油 / 成品油库存与天然气储量，含环比对比值。",
+    )
+    def th_us_get_energy_inventories(
+        *, commercial_use: CommercialFlag
+    ) -> dict[str, Any]:
+        flag = _guard(commercial_use)
+        return _run(energy_inventories, commercial_use=flag)
 
     # ----------------------------------------------------------------------- #
     # 合规 / 运行时信息（不取第三方数据）
@@ -658,14 +937,8 @@ def build_server() -> MCPServer:
     async def _healthz(_request):  # noqa: ANN001 - Starlette Request
         from starlette.responses import JSONResponse
 
-        return JSONResponse(
-            {
-                "status": "ok",
-                "name": "tickhub-us",
-                "version": __version__,
-                "tools": len(server._tool_manager._tools),
-            }
-        )
+        # 只回答存活；不暴露版本与工具数，避免把指纹和计数固化成探针契约（SEC-12）。
+        return JSONResponse({"status": "ok"})
 
     return server
 

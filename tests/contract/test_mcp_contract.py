@@ -31,7 +31,7 @@ def _tools() -> list:
 
 
 def test_tool_count_is_stable() -> None:
-    assert tool_count() == 30
+    assert tool_count() == 41
 
 
 def test_required_tools_are_registered() -> None:
@@ -72,6 +72,16 @@ def test_http_app_exposes_healthz_and_mcp() -> None:
     paths = {getattr(route, "path", None) for route in create_app().routes}
     assert "/healthz" in paths
     assert "/mcp" in paths
+
+
+def test_healthz_reports_liveness_only() -> None:
+    from starlette.testclient import TestClient
+
+    from tickhub_us.mcp.server import create_app
+
+    client = TestClient(create_app(), base_url="http://127.0.0.1")
+    body = client.get("/healthz").json()
+    assert body == {"status": "ok"}
 
 
 def test_tool_failure_is_an_error_result_with_spec_text(

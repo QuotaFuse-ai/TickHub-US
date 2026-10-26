@@ -115,11 +115,24 @@ rates: bis → ecb → ny_fed → federal_reserve → treasury
 
 ## MCP 工具
 
+共 **41 个**工具，完整清单见 `docs/specs/tickhub-us.md` §3.2。三个产品方案指定的签名：
+
 | 工具 | 说明 |
 |---|---|
 | `th_us_get_market_data(symbol, interval, commercial_use)` | 报价 / K 线 / 指标 |
 | `th_us_search_filings(symbol, form_type, commercial_use)` | SEC 申报检索 |
 | `th_us_get_options_flow(symbol, commercial_use)` | 期权链与异动 |
+
+| 类别 | 工具 |
+|---|---|
+| 行情 / 技术面 | `get_quote`、`get_market_data`、`technical_indicators`、`get_fund_flow`、`get_volatility`（`term_structure` 可切 VIX 期限结构）、`get_short_volume`、`get_short_interest`（两者均支持 `scope=symbol/all/rank`）、`get_taiwan_stock`、`get_taiwan_market`、`get_market_list` |
+| 基本面 | `get_fundamentals`、`get_key_indicators`、`get_financial_statements`、`get_analyst_estimates`、`get_institutional_holders` |
+| 期权 | `get_options_chain`、`get_options_flow` |
+| 申报 / 内部人 | `search_filings`、`get_filing_feed`、`fulltext_search`、`get_insider_trades`、`get_13f_holdings`、`get_xbrl_facts`、`screen_market`、`lookup_cik` |
+| 宏观 / 利率 / 能源 | `get_treasury_yield_curve`、`get_policy_rates`、`get_cot`、`get_earnings_calendar`、`get_ecb`（`kind=fx/key_rates/curve/series`）、`get_nyfed_rates`、`get_fed_releases`、`get_treasury_fiscal`、`get_energy_prices`、`get_energy_inventories` |
+| 工具 / 诊断 | `search_stocks`、`get_news`、`check_compliance`、`list_compliance_policies`、`list_providers`、`cache_status` |
+
+（表中省略 `th_us_` 前缀。）
 
 工具入口的中间件会拒绝缺少 `commercial_use` 的调用（`ComplianceError`），
 避免 Agent 在不知情的情况下触犯数据源条款。
@@ -139,7 +152,8 @@ Host / Origin 白名单由 `create_app()` 显式传入，回环场景只放行�
 
 设置 `MCP_HTTP_TOKEN` 后，除 `GET /healthz`（容器探针 / 负载均衡器用，保持匿名）外，
 所有请求都必须带 `Authorization: Bearer <token>`，校验用常量时间比较，失败返回 401 +
-`WWW-Authenticate: Bearer realm="tickhub-us"`。
+`WWW-Authenticate: Bearer realm="tickhub-us"`。`/healthz` 只返回 `{"status": "ok"}`，
+不暴露版本与工具数（SEC-12）。
 
 ```bash
 MCP_HTTP_HOST=0.0.0.0 \
@@ -179,10 +193,10 @@ Dockerfile              stdio 专用镜像（非 root）
 | `core/` `cache/` `compliance/` | 已完成 | 配置、错误码、HTTP 重试、DataEnvelope、分级 TTL、Redis→LRU 兜底、Tier 注册表与拦截器 |
 | `providers/`（20 个适配器） | 已完成 | 每个适配器都登记 `compliance_source`，取数前必经 `enforce()`；多 metric 域按 `supports()` 跳过不提供该数据的源（DEC-006） |
 | `market/` `fundamental/` `options/` `filings/` | 已完成 | 行情/K 线/指标/资金流/卖空/波动率、三表与预期、期权链与异动、SEC 全量申报 |
-| `mcp/` | 已完成 | 30 个工具（DEC-010 维持不扩张），stdio 与 Streamable HTTP 双通道实测通过，入口强制 `commercial_use`；非回环绑定强制令牌与 Host/Origin 校验（DEC-007） |
+| `mcp/` | 已完成 | 41 个工具（DEC-011 与参考实现齐平），stdio 与 Streamable HTTP 双通道实测通过，入口强制 `commercial_use`；非回环绑定强制令牌与 Host/Origin 校验（DEC-007）；`/healthz` 只报存活（SEC-12） |
 | `cli/` | 已完成 | `quote` / `finance` / `options` / `macro` / `cache` / `compliance` / `source` / `mcp` / `config` / `start-all` |
 | `SKILL.md` | 已完成 | Agent 侧瘦身 SOP（调用约定、工具速查、合规分级、缓存 TTL） |
-| `tests/` | 已完成 | 197 个用例：194 个离线（契约 + 合规 + 降级链矩阵 + 密钥脱敏 + 输入/网络加固 + MCP HTTP 安全 + 指标 Tier 继承），3 个真实联网冒烟（需 `TICKHUB_US_LIVE=1`） |
+| `tests/` | 已完成 | 237 个用例：234 个离线（契约 + 合规 + 降级链矩阵 + 密钥脱敏 + 输入/网络加固 + MCP HTTP 安全 + 指标 Tier 继承），3 个真实联网冒烟（需 `TICKHUB_US_LIVE=1`） |
 
 ```bash
 # 离线全量（无需外网、无需 Redis）

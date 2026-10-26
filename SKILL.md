@@ -105,15 +105,18 @@ th-us mcp http --host 127.0.0.1 --port 8001
 | `th_us_search_stocks(query, limit, commercial_use)` | 代码 / 公司名搜索 |
 | `th_us_get_news(symbol?, query?, count, commercial_use)` | 个股或关键词资讯 |
 | `th_us_get_fund_flow(symbol, limit, commercial_use)` | 资金流向 |
-| `th_us_get_short_interest(symbol, periods, date?, commercial_use)` | 卖空兴趣 |
-| `th_us_get_volatility(index="VIX", start?, end?, commercial_use)` | 波动率指数 |
+| `th_us_get_short_volume(symbol?, scope="symbol", days, date?, market, min_total, top, commercial_use)` | 卖空成交量；`scope=symbol/all/rank` |
+| `th_us_get_short_interest(symbol?, scope="symbol", periods, date?, by, min_avg_volume, top, include_otc, commercial_use)` | 卖空持仓；`scope=symbol/all/rank` |
+| `th_us_get_volatility(index="VIX", start?, end?, term_structure=False, indices?, commercial_use)` | 波动率指数；`term_structure=true` 取 VIX 期限结构 |
 | `th_us_get_taiwan_stock(code, commercial_use)` | 台股行情 + 估值 |
+| `th_us_get_taiwan_market(dataset="quotes", market="twse", code?, commercial_use)` | 台股全市场数据集 |
 
 ### 基本面
 
 | 工具 | 说明 |
 |---|---|
 | `th_us_get_fundamentals(symbol, commercial_use)` | 估值 / 利润率 / 增长 / 目标价 |
+| `th_us_get_key_indicators(symbol, page_size, commercial_use)` | 东财关键财务指标（US 49 / HK 75 字段） |
 | `th_us_get_financial_statements(symbol, statement, page_size, commercial_use)` | 三表 |
 | `th_us_get_analyst_estimates(symbol, commercial_use)` | EPS / 营收预期与评级 |
 | `th_us_get_institutional_holders(symbol, commercial_use)` | 机构持股 |
@@ -135,6 +138,7 @@ th-us mcp http --host 127.0.0.1 --port 8001
 | `th_us_get_insider_trades(symbol, days, max_filings, codes?, commercial_use)` | Form 4 内部人交易 |
 | `th_us_get_13f_holdings(filer, period?, top?, commercial_use)` | 13F-HR 持仓 |
 | `th_us_get_xbrl_facts(cik_or_symbol, metrics?, commercial_use)` | companyfacts |
+| `th_us_lookup_cik(symbol, commercial_use)` | ticker → 10 位 CIK |
 | `th_us_screen_market(tag, year?, quarter?, unit, limit, commercial_use)` | XBRL 横截面筛选 |
 
 ### 宏观 / 利率 / 能源
@@ -143,7 +147,14 @@ th-us mcp http --host 127.0.0.1 --port 8001
 |---|---|
 | `th_us_get_treasury_yield_curve(year?, commercial_use)` | 美债收益率曲线 |
 | `th_us_get_policy_rates(areas?, last, commercial_use)` | BIS / ECB / NY Fed / Fed Board |
+| `th_us_get_cot(limit, market?, commercial_use)` | CFTC 持仓报告 |
+| `th_us_get_earnings_calendar(date?, commercial_use)` | Nasdaq 财报日历（Tier D，仅个人研究） |
+| `th_us_get_ecb(kind="fx", currencies?, curve, tenors, flow?, key?, last, commercial_use)` | ECB 汇率 / 关键利率 / 收益率曲线 / 任意序列 |
+| `th_us_get_nyfed_rates(rate="sofr", last, commercial_use)` | NY Fed SOFR / EFFR / OBFR / TGCR / BGCR |
+| `th_us_get_fed_releases(release="H10", last, commercial_use)` | Fed H.10 / H.6 |
+| `th_us_get_treasury_fiscal(dataset="debt", limit, filters?, fields?, commercial_use)` | 财政数据 / 拍卖 / 平均利率 |
 | `th_us_get_energy_prices(series, start?, end?, commercial_use)` | WTI / BRENT / HENRY_HUB |
+| `th_us_get_energy_inventories(commercial_use)` | EIA 周度库存（含 SPR 与 5 年均值） |
 
 ### 诊断（只读，不取第三方数据）
 
