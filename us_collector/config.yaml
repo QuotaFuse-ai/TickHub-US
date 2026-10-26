@@ -1,0 +1,81 @@
+# TickHub-US 采集 sidecar 配置
+#
+# 运行目录约定：在 TickHub-US 仓库根目录执行
+#   python -m us_collector.scheduler --config us_collector/config.yaml
+# 相对路径（outbox / lock）都相对于运行目录解析。
+
+# 股票池：dry-run 演练默认只放两只，生产请按配额评估后扩容。
+symbols:
+  - AAPL
+  - MSFT
+
+# 工具开关（对应 tickhub-integration.md §5.3）
+tools:
+  quote: true
+  kline: true
+  financial: true
+  announcement: true
+  risk: true
+
+mcp:
+  # th-us mcp http --host 127.0.0.1 --port 8001
+  url: http://127.0.0.1:8001/mcp
+  # 设置 MCP_HTTP_TOKEN 环境变量后自动加 Bearer 头；未设置则不带鉴权。
+  token_env: MCP_HTTP_TOKEN
+  timeout_seconds: 60
+
+redis:
+  # 也可用 FC_EVENT_REDIS_URL 覆盖；务必使用独立 db（默认 /1）。
+  url: redis://127.0.0.1:6379/1
+  stream: fc:stockdata:events
+  maxlen: 100000
+  publish_timeout_seconds: 2
+
+outbox:
+  # Redis 不可用时事件落这里；恢复后自动补投（XLEN 只增加一次）。
+  path: var/us_collector/outbox.sqlite3
+  flush_interval_seconds: 300
+  aged_alert_hours: 24
+  dedupe_ttl_days: 180
+
+schedule:
+  # 时区固定为美东，夏令时由 tzdata 处理；改成其他时区启动会直接报错。
+  timezone: America/New_York
+  hour: 17
+  minute: 30
+  day_of_week: mon-fri
+  # 美股节假日只发 heartbeat，不调用任何工具。
+  skip_us_holidays: true
+  # 单实例锁；第二个实例会以退出码 2 拒绝启动。
+  lock_path: var/us_collector/scheduler.lock
+
+kline:
+  interval: 1d
+  range: 6mo
+  # 每日只推最新 N 根，历史回补由消费端自行拉取。
+  bars_per_run: 1
+
+financial:
+  statements: [income, balance, cashflow]
+  reports_per_statement: 1
+
+announcements:
+  forms: 10-K,10-Q,8-K
+  limit: 10
+  lookback_days: 7
+
+risk:
+  insider_days: 30
+  insider_max_events: 5
+  top_holdings: 10
+  # 13F 工具按机构 CIK 查询，不是按股票代码；必须显式把 filer 绑定到股票池
+  # 里的 symbol 才会采集。留空表示不采 13F。示例：
+  #   - filer: "0001067983"
+  #     symbol: AAPL
+  #     manager: Berkshire Hathaway
+  filers_13f: []
+
+compliance:
+  # DEC-0006：D 级数据不可商用。只能用 false，没有运行时开关；
+  # 若环境变量 FC_COLLECT_COMMERCIAL_USE 出现且不是 false，启动直接失败。
+  commercial_use: false
