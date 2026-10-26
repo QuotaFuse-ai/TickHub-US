@@ -1,7 +1,9 @@
 name: Publish to PyPI
 
 # 手动触发：合并代码、打 tag 都不会自动上传。
-# 首次发布前需在 PyPI / TestPyPI 配置 Trusted Publishing，步骤见 docs/PUBLISHING.md。
+# 走 GitHub OIDC Trusted Publishing，仓库不存 token；PyPI 侧 publisher 配置为
+# project tickhub-us、owner QuotaFuse-ai、repo TickHub-US、本文件、环境 pypi / testpypi。
+# 步骤见 README 的 Publishing 一节。
 
 on:
   workflow_dispatch:

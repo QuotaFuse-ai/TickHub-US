@@ -44,7 +44,7 @@ Documentation = "https://github.com/QuotaFuse-ai/TickHub-US#readme"
 Repository = "https://github.com/QuotaFuse-ai/TickHub-US"
 Issues = "https://github.com/QuotaFuse-ai/TickHub-US/issues"
 Releases = "https://github.com/QuotaFuse-ai/TickHub-US/releases"
-Changelog = "https://github.com/QuotaFuse-ai/TickHub-US/blob/main/docs/specs/tickhub-us.md"
+Changelog = "https://github.com/QuotaFuse-ai/TickHub-US/blob/main/docs/CHANGELOG.md"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

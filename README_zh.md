@@ -123,7 +123,7 @@ TickHub-US · MCP Server + CLI · v1.0.0
 
 - `commercial_use=false`：S / B / C / D 均可调用，C / D 附 `warnings`；
 - `commercial_use=true`：S 放行；Tier B 默认拒绝，可逐项放行；C / D 直接抛 `ComplianceError`，**不会沿降级链绕过**；
-- 链上所有源都被合规拒绝时抛 `ComplianceError`，绝不静默降级（DEC-005）。
+- 链上所有源都被合规拒绝时抛 `ComplianceError`，绝不静默降级。
 
 ---
 
@@ -186,7 +186,7 @@ th-us quote get AAPL --output json      # stdout 只有 JSON，日志走 stderr
 
 ### 一键使用
 
-四种分发包一套代码：PyPI wheel / sdist、GitHub Release 附件、GHCR 容器镜像、源码安装。三条发布通道在 v1.0.0 均已上线。发布流程与镜像用法见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+四种分发包一套代码：PyPI wheel / sdist、GitHub Release 附件、GHCR 容器镜像、源码安装。三条发布通道在 v1.0.0 均已上线。发布流程与镜像用法见 [发布](#发布)。
 
 ```bash
 # PyPI
@@ -499,11 +499,11 @@ options_flow: cboe → yahoo                          # TTL 60s, realtime
 }
 ```
 
-技术指标额外带 `underlying`，记录底层 K 线的源与等级——指标本身是 Tier S 的本地计算，但结果的可信度取决于输入（DEC-009）。
+技术指标额外带 `underlying`，记录底层 K 线的源与等级——指标本身是 Tier S 的本地计算，但结果的可信度取决于输入，该等级会一并透出给调用方。
 
 ## MCP 工具
 
-共 **41 个**工具，完整清单见 [`docs/specs/tickhub-us.md`](docs/specs/tickhub-us.md) §3.2。三个产品方案指定的签名：
+共 **41 个**工具，按类别列在下方。三个产品方案指定的签名：
 
 | 工具 | 说明 |
 |---|---|
@@ -520,7 +520,7 @@ options_flow: cboe → yahoo                          # TTL 60s, realtime
 | 宏观 / 利率 / 能源 | `get_treasury_yield_curve`、`get_policy_rates`、`get_cot`、`get_earnings_calendar`、`get_ecb`（`kind=fx/key_rates/curve/series`）、`get_nyfed_rates`、`get_fed_releases`、`get_treasury_fiscal`、`get_energy_prices`、`get_energy_inventories` |
 | 工具 / 诊断 | `search_stocks`、`get_news`、`check_compliance`、`list_compliance_policies`、`list_providers`、`cache_status` |
 
-（表中省略 `th_us_` 前缀。41 个工具与规格 §3.2 一一对应，见 DEC-011。）
+（表中省略 `th_us_` 前缀。）
 
 ## MCP HTTP 安全
 
@@ -571,7 +571,19 @@ CI（`.github/workflows/ci.yml`）：
 | `publish.yml` | `python -m build` → `twine check --strict` → 在干净 venv 里跑一遍 wheel（证明不依赖源码树）→ 发 TestPyPI 或 PyPI（OIDC 可信发布，无 token）→ 发布到 PyPI 时顺手建 GitHub Release 并附上 sdist / wheel |
 | `docker.yml` | 构建并推送 `ghcr.io/quotafuse-ai/tickhub-us`（版本标签 + `latest`）→ 拉起来跑真机冒烟：匿名 `/healthz` 通、带 Bearer 的 MCP `initialize` 通、不带 token 的 POST 返回 401 |
 
-操作步骤与首次发布需要的两件事（PyPI 注册 + 可信发布配置）见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+操作步骤与首次发布需要的两件事（PyPI 注册 + 可信发布配置）见 [发布](#发布)。
+
+### 发布
+
+两条通道都是**手动 dispatch**，推 commit 或打 tag 都不会上传。
+
+**PyPI / TestPyPI**（`publish.yml`，`1.0.0` 已上线）：
+
+- *Actions → Publish to PyPI → Run workflow*，选 `pypi` 或 `testpypi`。鉴权走 GitHub OIDC（可信发布），仓库不存 token。
+- 一次性配置（仅新项目或新环境需要）：在索引站 *Publishing → Add a new pending publisher*，填 project `tickhub-us`、owner `QuotaFuse-ai`、repository `TickHub-US`、workflow `publish.yml`、environment `pypi`（TestPyPI 用 `testpypi`，独立账号）。
+- 版本一经上传不可覆盖，重发前先改 `pyproject.toml` 的 `version`；上传的就是通过 `twine check --strict` 的那批文件，check 与 upload 之间不要重建。
+
+**容器**（`docker.yml`）：构建并推送 `ghcr.io/quotafuse-ai/tickhub-us`（版本标签 + `latest`），再拉回来冒烟（匿名 `/healthz`、带鉴权的 MCP `initialize`、未鉴权 POST 返回 401）。
 
 出口需要代理时，设置 `HTTPS_PROXY` / `HTTP_PROXY` 即可（`requests` 默认读取环境代理）；代理口令只放环境变量，不要写进 `config/` 或提交到仓库。
 
@@ -593,7 +605,7 @@ src/tickhub_us/
 tests/
   contract/             接口契约 + 联网冒烟 + 缺陷回归
   compliance/           合规拦截测试
-docs/                   规格、决策记录、任务产出、PUBLISHING.md（发布手册）
+docs/CHANGELOG.md      更新记录（仓库唯一文档）
 SKILL.md                Agent 侧的瘦身 SOP
 Dockerfile              镜像（非 root，默认 stdio）
 .github/workflows/      ci.yml（门禁）+ publish.yml（PyPI / Release）+ docker.yml（GHCR）
@@ -603,7 +615,7 @@ Dockerfile              镜像（非 root，默认 stdio）
 
 **需要 API Key 吗？** 默认不需要。只有 Polygon 是可选源（`POLYGON_API_KEY`）；SEC EDGAR 需要声明真实的 `SEC_CONTACT`，这不是密钥而是身份声明。
 
-**会不会因为拿不到数据就悄悄换源？** 会沿降级链换源，但**不会**因为合规拒绝而降级——链上源全部被拒时抛 `ComplianceError`，并在 `attempts` 里列明每个源被拒的原因（DEC-005）。
+**会不会因为拿不到数据就悄悄换源？** 会沿降级链换源，但**不会**因为合规拒绝而降级——链上源全部被拒时抛 `ComplianceError`，并在 `attempts` 里列明每个源被拒的原因。
 
 **港股期权有吗？** 没有，期权层仅美股（港股期权需港交所付费专有接口）。
 
@@ -617,11 +629,11 @@ Dockerfile              镜像（非 root，默认 stdio）
 
 **不用 MCP 客户端能用吗？** 能。`th-us` CLI 覆盖全部端点，`--output json` 后可直接喂给任何脚本。
 
-**现在能从 PyPI 装吗？有没有 Docker 镜像？** 都有。`pip install tickhub-us` 装到的就是 1.0.0（[PyPI](https://pypi.org/project/tickhub-us/)），同一份 wheel / sdist 也挂在 [v1.0.0 Release](https://github.com/QuotaFuse-ai/TickHub-US/releases/tag/v1.0.0) 上；容器镜像公开在 `ghcr.io/quotafuse-ai/tickhub-us`（标签 `1.0.0` 与 `latest`，`docker pull` 不用登录）。发布都是手动 dispatch 一次 `publish.yml` / `docker.yml`，步骤见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+**现在能从 PyPI 装吗？有没有 Docker 镜像？** 都有。`pip install tickhub-us` 装到的就是 1.0.0（[PyPI](https://pypi.org/project/tickhub-us/)），同一份 wheel / sdist 也挂在 [v1.0.0 Release](https://github.com/QuotaFuse-ai/TickHub-US/releases/tag/v1.0.0) 上；容器镜像公开在 `ghcr.io/quotafuse-ai/tickhub-us`（标签 `1.0.0` 与 `latest`，`docker pull` 不用登录）。发布都是手动 dispatch 一次 `publish.yml` / `docker.yml`，步骤见 [发布](#发布)。
 
 ## 版本
 
-**v1.0.0**（2026-10-26）— 首个正式版本，功能面与规格对齐（DEC-011），并完成全端点联网复验：
+**v1.0.0**（2026-10-26）— 首个正式版本，功能面与规格对齐，并完成全端点联网复验：
 
 - 修复 BIS 政策利率恒 404（SDMX key 重复拼接 `D.` 维度）；
 - 修复 Yahoo quoteSummary 全线 401（非浏览器 UA 被回 429，取不到 crumb 导致；同时改为失败后冷却重试而非永久放弃）；
@@ -638,4 +650,4 @@ Dockerfile              镜像（非 root，默认 stdio）
 
 [Apache License 2.0](LICENSE)。**Author:** QuotaFuse · <https://github.com/QuotaFuse-ai>
 
-功能规格见 [`docs/specs/tickhub-us.md`](docs/specs/tickhub-us.md)，架构决策见 [`docs/decisions/`](docs/decisions/)，Agent 调用 SOP 见 [`SKILL.md`](SKILL.md)。
+更新记录见 [`docs/CHANGELOG.md`](docs/CHANGELOG.md)，Agent 调用 SOP 见 [`SKILL.md`](SKILL.md)。

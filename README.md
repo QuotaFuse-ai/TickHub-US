@@ -124,7 +124,7 @@ The gate really fires, and it is not a documentation convention:
 
 - `commercial_use=false`: S / B / C / D are all callable; C / D carry `warnings`.
 - `commercial_use=true`: S passes; tier B is denied by default and can be whitelisted per source; C / D raise `ComplianceError` and **never walk the fallback chain to get around it**.
-- If every source on the chain is denied by compliance, the call raises `ComplianceError` instead of silently degrading (DEC-005).
+- If every source on the chain is denied by compliance, the call raises `ComplianceError` instead of silently degrading.
 
 ---
 
@@ -187,7 +187,7 @@ Look at `compliance_tier` and `warnings`: this row came from Sina, a tier-C sour
 
 ### One-click install
 
-Four distribution channels, one code base — PyPI wheel / sdist, GitHub Release assets, GHCR container image, and source install. All three published channels are live as of v1.0.0. See [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
+Four distribution channels, one code base — PyPI wheel / sdist, GitHub Release assets, GHCR container image, and source install. All three published channels are live as of v1.0.0. See [Publishing](#publishing).
 
 ```bash
 # PyPI
@@ -503,11 +503,11 @@ Every response uses the same envelope, so an agent can consume `source` / `fresh
 
 (The `warnings` string is read from `config/compliance.yaml` and is currently Chinese-only; callers should treat it as opaque text, not parse it.)
 
-Technical indicators additionally carry `underlying`, which records the source and tier of the K-lines they were computed from: the indicator itself is tier-S local computation, but its trustworthiness depends on its input (DEC-009).
+Technical indicators additionally carry `underlying`, which records the source and tier of the K-lines they were computed from: the indicator itself is tier-S local computation, but its trustworthiness depends on its input, and that tier stays visible to the caller.
 
 ## MCP tools
 
-**41 tools** in total; the full list is in [`docs/specs/tickhub-us.md`](docs/specs/tickhub-us.md) §3.2. The three signatures fixed by the product spec:
+**41 tools** in total, grouped below. The three signatures fixed by the product spec:
 
 | Tool | Purpose |
 |---|---|
@@ -524,7 +524,7 @@ Technical indicators additionally carry `underlying`, which records the source a
 | Macro / rates / energy | `get_treasury_yield_curve`, `get_policy_rates`, `get_cot`, `get_earnings_calendar`, `get_ecb` (`kind=fx/key_rates/curve/series`), `get_nyfed_rates`, `get_fed_releases`, `get_treasury_fiscal`, `get_energy_prices`, `get_energy_inventories` |
 | Tools / diagnostics | `search_stocks`, `get_news`, `check_compliance`, `list_compliance_policies`, `list_providers`, `cache_status` |
 
-(The `th_us_` prefix is omitted above. The 41 tools map one-to-one to spec §3.2; see DEC-011.)
+(The `th_us_` prefix is omitted above.)
 
 ## MCP HTTP security
 
@@ -575,7 +575,19 @@ Two **manual** release workflows, neither triggered by a push:
 | `publish.yml` | `python -m build` → `twine check --strict` → install and run the wheel in a clean venv (proving it does not need the source tree) → publish to TestPyPI or PyPI (OIDC trusted publishing, no token) → when publishing to PyPI, also create a GitHub Release with the sdist / wheel attached |
 | `docker.yml` | Build and push `ghcr.io/quotafuse-ai/tickhub-us` (version tag + `latest`) → pull it back and run a real smoke: anonymous `/healthz` works, MCP `initialize` with a Bearer token works, an unauthenticated POST returns 401 |
 
-Operating steps and the one-time PyPI setup are in [`docs/PUBLISHING.md`](docs/PUBLISHING.md). If egress needs a proxy, set `HTTPS_PROXY` / `HTTP_PROXY` (the standard variables `requests` reads); keep proxy credentials in the environment only — never in `config/` and never committed.
+Operating steps and the one-time PyPI setup are in [Publishing](#publishing). If egress needs a proxy, set `HTTPS_PROXY` / `HTTP_PROXY` (the standard variables `requests` reads); keep proxy credentials in the environment only — never in `config/` and never committed.
+
+### Publishing
+
+Both channels are **manual dispatch only** — pushing a commit or a tag uploads nothing.
+
+**PyPI / TestPyPI** (`publish.yml`, already live at `1.0.0`):
+
+- Run *Actions → Publish to PyPI → Run workflow*, pick `pypi` or `testpypi`. Auth is GitHub OIDC (Trusted Publishing); no token is stored in the repository.
+- One-time setup, needed only for a new project or environment: on the index, *Publishing → Add a new pending publisher* with project `tickhub-us`, owner `QuotaFuse-ai`, repository `TickHub-US`, workflow `publish.yml`, environment `pypi` (or `testpypi`, a separate account).
+- A version, once uploaded, cannot be replaced — bump `version` in `pyproject.toml` before re-running. Upload the exact artefacts that passed `twine check --strict`; do not rebuild between check and upload.
+
+**Container** (`docker.yml`): builds and pushes `ghcr.io/quotafuse-ai/tickhub-us` with the version tag plus `latest`, then pulls it back and smokes it (anonymous `/healthz`, authenticated MCP `initialize`, 401 on unauthenticated POST).
 
 ## Directory layout
 
@@ -595,7 +607,7 @@ src/tickhub_us/
 tests/
   contract/             interface contracts + live smoke + defect regressions
   compliance/           compliance interception tests
-docs/                   specs, decision records, task outputs, PUBLISHING.md
+docs/CHANGELOG.md       update log (the only document in the repository)
 SKILL.md                compact agent-facing SOP
 Dockerfile              image (non-root, stdio by default)
 .github/workflows/      ci.yml (gate) + publish.yml (PyPI / Release) + docker.yml (GHCR)
@@ -605,7 +617,7 @@ Dockerfile              image (non-root, stdio by default)
 
 **Does it need an API key?** No, by default. Only Polygon is an optional source (`POLYGON_API_KEY`); SEC EDGAR needs a real `SEC_CONTACT`, which is an identity declaration, not a secret.
 
-**Will it silently switch sources when data is missing?** It will walk the fallback chain, but it will **not** degrade around a compliance denial — if every source on the chain is denied, it raises `ComplianceError` and lists each denial in `attempts` (DEC-005).
+**Will it silently switch sources when data is missing?** It will walk the fallback chain, but it will **not** degrade around a compliance denial — if every source on the chain is denied, it raises `ComplianceError` and lists each denial in `attempts`.
 
 **Are HK options available?** No. The options layer is US only; HK options would require HKEX's paid proprietary feed.
 
@@ -619,11 +631,11 @@ Dockerfile              image (non-root, stdio by default)
 
 **Can I use it without an MCP client?** Yes. The `th-us` CLI covers every endpoint, and `--output json` feeds any script directly.
 
-**Can I install it from PyPI? Is there a Docker image?** Yes to both. `pip install tickhub-us` installs 1.0.0 ([PyPI](https://pypi.org/project/tickhub-us/)), the same wheel / sdist ship as [v1.0.0 release assets](https://github.com/QuotaFuse-ai/TickHub-US/releases/tag/v1.0.0), and the container is public at `ghcr.io/quotafuse-ai/tickhub-us` (tags `1.0.0` and `latest`, `docker pull` needs no login). Publishing is a single manual dispatch of `publish.yml` / `docker.yml`; steps are in [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
+**Can I install it from PyPI? Is there a Docker image?** Yes to both. `pip install tickhub-us` installs 1.0.0 ([PyPI](https://pypi.org/project/tickhub-us/)), the same wheel / sdist ship as [v1.0.0 release assets](https://github.com/QuotaFuse-ai/TickHub-US/releases/tag/v1.0.0), and the container is public at `ghcr.io/quotafuse-ai/tickhub-us` (tags `1.0.0` and `latest`, `docker pull` needs no login). Publishing is a single manual dispatch of `publish.yml` / `docker.yml`; steps are in [Publishing](#publishing).
 
 ## Version
 
-**v1.0.0** (2026-10-26) — first stable release, feature-complete against the spec (DEC-011) and re-verified end to end against live sources:
+**v1.0.0** (2026-10-26) — first stable release, feature-complete against the spec and re-verified end to end against live sources:
 
 - Fixed BIS policy rates always returning 404 (the SDMX key duplicated the `D.` dimension);
 - Fixed Yahoo quoteSummary returning 401 across the board (a non-browser UA got 429, so no crumb could be obtained; now it cools down and retries instead of giving up permanently);
@@ -640,4 +652,4 @@ This project provides data-access tooling only. It is not investment advice. Mar
 
 [Apache License 2.0](LICENSE). **Author:** QuotaFuse · <https://github.com/QuotaFuse-ai>
 
-Feature spec: [`docs/specs/tickhub-us.md`](docs/specs/tickhub-us.md) · architecture decisions: [`docs/decisions/`](docs/decisions/) · agent SOP: [`SKILL.md`](SKILL.md)
+Update log: [`docs/CHANGELOG.md`](docs/CHANGELOG.md) · agent SOP: [`SKILL.md`](SKILL.md)

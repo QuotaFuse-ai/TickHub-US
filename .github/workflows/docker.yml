@@ -78,7 +78,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 非回环绑定必须带鉴权并声明 Host 白名单（DEC-007），因此这里显式给 token。
+      # 非回环绑定必须带鉴权并声明 Host 白名单，因此这里显式给 token。
       - name: Run the published image over Streamable HTTP
         run: |
           ref="${{ needs.image.outputs.image }}:${{ needs.image.outputs.version }}"

@@ -1,4 +1,4 @@
-"""降级链矩阵：DEC-003（缓存键含用途）、DEC-005（不静默降级）、DEC-006（能力感知）。"""
+"""降级链矩阵：缓存键含用途、不静默降级、能力感知。"""
 
 from __future__ import annotations
 
@@ -107,7 +107,7 @@ def test_every_chain_provider_is_registered_handled_and_classified() -> None:
 
 
 def test_macro_earnings_calendar_is_compliance_not_no_data() -> None:
-    """DEC-006：不具备该 metric 的源记 unsupported，不能被伪装成 E_NO_DATA。"""
+    """不具备该 metric 的源记 unsupported，不能被伪装成 E_NO_DATA。"""
     with pytest.raises(ComplianceError) as info:
         run_chain(
             "macro",
