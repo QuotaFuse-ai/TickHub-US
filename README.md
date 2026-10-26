@@ -1,15 +1,14 @@
+<p align="center"><a href="README_zh.md">简体中文</a> | <b>English</b></p>
+
 <h1 align="center">TickHub-US</h1>
 
 <p align="center">
-  <b>面向 AI Agent 的美股 / 港股数据引擎</b>
+  <b>US / HK market data engine for AI agents</b><br>
+  Quotes · K-lines · Fundamentals · Options &amp; Flow · Short Data · SEC Filings &amp; 13F · Global Rates · Energy
 </p>
 
 <p align="center">
-  41 个 MCP 工具 · 34 个数据域 · 20 个数据源 · 合规分级强制拦截
-</p>
-
-<p align="center">
-  行情 K 线 · 基本面三表 · 期权与异动 · 卖空 · SEC 申报 / 13F · 宏观利率 · 能源
+  41 MCP tools · 34 domains · 20 sources · hard compliance gate
 </p>
 
 <p align="center">
@@ -20,62 +19,137 @@
   <a href="https://github.com/QuotaFuse-ai/TickHub-US/stargazers"><img src="https://img.shields.io/github/stars/QuotaFuse-ai/TickHub-US?style=social" alt="Stars"></a>
   <br>
   <img src="https://img.shields.io/badge/MCP_tools-41-2ea44f.svg" alt="41 MCP tools">
-  <img src="https://img.shields.io/badge/数据源-20-2ea44f.svg" alt="20 data sources">
+  <img src="https://img.shields.io/badge/sources-20-2ea44f.svg" alt="20 data sources">
   <img src="https://img.shields.io/badge/tests-251-2ea44f.svg" alt="251 tests">
-  <img src="https://img.shields.io/badge/商用分级-S%20%2F%20B%20%2F%20C%20%2F%20D-2ea44f.svg" alt="Compliance tiers">
+  <img src="https://img.shields.io/badge/tiers-S%20%2F%20B%20%2F%20C%20%2F%20D-2ea44f.svg" alt="Compliance tiers">
 </p>
 
 ---
 
 <p align="center">
-  <a href="#简介">简介</a> ·
-  <a href="#30-秒上手">30 秒上手</a> ·
-  <a href="#为什么选它">为什么选它</a> ·
-  <a href="#架构">架构</a> ·
-  <a href="#合规分级">合规分级</a> ·
-  <a href="#快速开始">快速开始</a> ·
-  <a href="#端点">端点</a> ·
-  <a href="#数据源">数据源</a> ·
-  <a href="#mcp-工具">MCP 工具</a> ·
-  <a href="#测试与-ci">测试与 CI</a> ·
+  <a href="#why-tickhub-us">Why TickHub-US</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#compliance-tiers">Compliance</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#endpoints">Endpoints</a> ·
+  <a href="#data-sources">Data Sources</a> ·
+  <a href="#configuration">Configuration</a> ·
   <a href="#faq">FAQ</a>
 </p>
 
-## 简介
+> **TickHub-US does one thing: it turns US / HK market data scattered across 20 sources into structured tools a model can call directly.**
+>
+> Every number must come from a tool call, and must carry its source and compliance tier. Quotes, K-lines, financial statements, options chains and unusual flow, short data, SEC filings and 13F, policy rates, energy — the service fetches, normalizes and caches them, then returns a single [`DataEnvelope`](#dataenvelope) instead of asking the model to remember numbers or stitch URLs itself.
+>
+> It is a deployable standalone service, not a prompt. Three things come with that: **process isolation** (a real process exposing MCP stdio / Streamable HTTP plus a `th-us` CLI), **compliance interception** (a commercial call against a disallowed tier raises `ComplianceError` and does *not* walk the fallback chain) and **cache degradation** (Redis when available, in-process LRU when not, with an explicit warning).
+>
+> - **41 MCP tools + ten `th-us` CLI groups**, same response shape at every entry point.
+> - **20 sources graded S / B / C / D** (plus tier X, never integrated); the grade is enforced at the call site, not in documentation.
+> - **Fallback order and compliance grades live in YAML**, so changing a source is a config change, not a release.
+> - **Optional Redis**, automatic LRU fallback, and cache keys that separate commercial from non-commercial calls.
+> - **The wheel ships its own config**, so `pip install` works from any directory.
 
-**TickHub-US 只做一件事：把分散在 20 个数据源里的美股 / 港股数据，变成模型可以直接调用的结构化工具。**
-
-产品围绕一条规则构建 —— **每个数字都必须来自一次工具调用，并且带上出处与合规级别**。
-行情、K 线、基本面三表、期权链与异动、卖空、SEC 申报与 13F、宏观利率、能源，全部由服务端抓取、
-归一化、缓存，返回统一的 [`DataEnvelope`](#dataenvelope)，而不是让模型回忆或自己拼 URL。
-
-- **41 个 MCP 工具 + `th-us` CLI 十组命令**，共用同一套返回结构，换入口不换语义。
-- **20 个数据源按 S / B / C / D 五档分级**（另有 X 档永不接入），商用调用时强制拦截，
-  拒绝即不降级——不会在不知情的情况下触犯条款。
-- **降级顺序与合规等级都写在 YAML**，换源是一次配置变更，不是一次发版。
-- **Redis 可选**，没有时自动退化为进程内 LRU，并显式 warning；缓存键区分商用 / 非商用。
-- **wheel 自带 config**，`pip install` 后在任何目录都能直接运行，不依赖仓库布局。
-- 前身是单文件 Skill [global-stock-data](https://github.com/simonlin1212/global-stock-data)；
-  本仓库把它重写为可部署的独立服务，并补上参考实现里没有的三件事：
-  **进程隔离**、**合规拦截**、**缓存降级**。
-
-> *本工具只分发**代码，不分发市场数据**。数据由使用者自行按各源条款获取。商用请只依赖 S 级源。*
+> *This project distributes **code, not market data**. Data is fetched by the user under each source's own terms. For commercial use, rely only on tier-S sources.*
 
 ---
 
-## 30 秒上手
+## Why TickHub-US
 
-**报价类工具不需要任何密钥**；只有 SEC 类接口要求一个真实联系人邮箱（EDGAR 对 User-Agent 的硬性规定），
-不是一个 token。
+One sentence: **direct API calls give you freedom, aggregation libraries give you breadth, and TickHub-US gives you "a model can retrieve sourced, compliance-tagged data without writing code".**
 
-```bash
-git clone https://github.com/QuotaFuse-ai/TickHub-US.git && pip install -e TickHub-US
-# PyPI 上架后一行替代：pip install tickhub-us
-export SEC_CONTACT="Zhang San zhangsan@example.com"
-th-us quote get AAPL
+| Dimension | TickHub-US | Calling Yahoo / Eastmoney directly | Aggregator libraries (mostly A-shares) | Paid market-data APIs |
+|---|---|---|---|---|
+| How you call it | MCP tools, CLI and Python share one response | Build URLs, supply UA / crumb, parse fields | Python functions, one DataFrame per function | SDK + subscription |
+| Auth | Zero-key quotes; SEC needs only a contact email | Maintain cookies, crumbs, throttling yourself | Zero-key | Signup, payment, quota |
+| Compliance | Every source graded S / B / C / D; commercial calls blocked and logged | Read the terms and judge yourself | Not distinguished | Covered by contract |
+| Multi-source fallback | Chains declared in YAML, every attempt recorded | Write your own retries and fallbacks | Partial | Usually single-source |
+| US / HK | US + HK quotes and K-lines; Taiwan via official open data | Inconsistent endpoints per site | Mostly A-shares | Bought per plan |
+| SEC depth | Filings, full-text search, XBRL, 13F, Form 4 — all free, tier S | Implement CIK mapping and paging yourself | Partial | Usually bought separately |
+| Response shape | One envelope with `source` / `freshness` / `trace_id` | Raw JSON that changes with the site | DataFrame | Varies |
+| License / cost | Apache-2.0; data under each source's terms | — | MIT / Apache | Commercial subscription |
+| Best for | AI agents and automation that needs a compliance stance | Deep customization of one endpoint | Data exploration and research | Institutions with SLAs |
+
+---
+
+## Architecture
+
+```
+TickHub-US · MCP Server + CLI · v1.0.0
+│
+├── Access       MCP stdio / Streamable HTTP (41 tools) + th-us CLI (10 command groups)
+│                ↳ commercial_use is mandatory at the entry point; missing → ComplianceError
+│
+├── Orchestration
+│                Fallback chain (config/sources.yaml) → try each source → record all attempts
+│                Compliance gate (config/compliance.yaml) → tier decision → denial is final
+│                Cache (Redis, auto-degrades to in-process LRU) → per-domain TTL
+│
+├── Domains      quotes / K-lines / indicators / fund flow / short / volatility / Taiwan
+│                fundamentals / statements / key metrics / analysts / institutional holders
+│                options chain / unusual flow / CBOE quotes
+│                SEC filings / daily feed / full-text / XBRL / insiders / 13F
+│                macro / rates / FX / energy
+│
+└── Adapters     20 providers, each registering a compliance_source
+                 SEC EDGAR · Treasury · CFTC · Fed Board · NY Fed · BIS · ECB · EIA · EIA spot
+                 TWSE · TPEx · FINRA · CBOE · Eastmoney · Sina · Tencent · Polygon · Yahoo · Nasdaq · local
 ```
 
-2026-10-26 实网返回（`--output json`，节选）：
+> **Design trade-off**: source priority is written in YAML, not code — one line changes the fallback order. Compliance works the same way: the code only knows `compliance_source`. When a source changes its terms, that is a config change, not a release.
+
+---
+
+## Compliance tiers
+
+Source terms differ a lot, and **"official" does not mean "free to use"**. These grades come from reading each source's actual terms; the full text is in [`config/compliance.yaml`](config/compliance.yaml).
+
+<table>
+<thead>
+<tr><th nowrap>Tier</th><th nowrap>Commercial</th><th nowrap>Redistribute</th><th>Sources</th><th>Basis (quoted)</th></tr>
+</thead>
+<tbody>
+<tr><td nowrap><strong>S</strong></td><td nowrap>✅</td><td nowrap>✅</td><td>SEC EDGAR · Treasury · CFTC · Fed Board · NY Fed · BIS · ECB · EIA (inventories) · TWSE · TPEx · local indicator computation</td><td>EDGAR says <em>"for free"</em> and allows scripted access, hard limit 10 req/s (this project uses 8). Fed Board: <em>"public domain"</em>. NY Fed allows <em>"personal or business purposes"</em> and automated access. BIS: <em>"unrestricted"</em>. ECB: <em>"reused free of charge"</em>. EIA's own data: <em>"public domain"</em>. The two Taiwan datasets are registered on the government open data platform and covered by the Open Government Data License. <strong>BIS / ECB / Fed / TWSE / TPEx require attribution; ECB data must not be modified; TWSE / TPEx reproductions must stay complete</strong></td></tr>
+<tr><td nowrap><strong>B</strong></td><td nowrap>⚠️ verify first</td><td nowrap>❌</td><td>FINRA · EIA spot prices</td><td>FINRA publishes its files for download but prohibits <em>"data mining, scraping or harvesting tools"</em> and states <em>"non-commercial use"</em>. EIA's WTI / Brent / Henry Hub spot prices come from <em>"Refinitiv, an LSEG business"</em>; reproducing third-party material beyond fair use needs the copyright owner's written permission</td></tr>
+<tr><td nowrap><strong>C</strong></td><td nowrap>❌ needs permission</td><td nowrap>❌</td><td>CBOE · Eastmoney · Sina · Tencent · Polygon</td><td>Cboe (options chains, volatility indices) requires <em>"approval in advance"</em> + a <em>"license agreement"</em>. Eastmoney / Sina / Tencent are website front-end endpoints, personal research only. A Polygon subscription key does not by itself prove commercial or redistribution rights</td></tr>
+<tr><td nowrap><strong>D</strong></td><td nowrap>❌</td><td nowrap>❌</td><td>Yahoo Finance · Nasdaq</td><td>Terms prohibit automated access without permission. Yahoo: <em>"using any automated means… for any purpose without our express, prior permission"</em>. Nasdaq: <em>"any process, whether automated or manual, to capture data… for any reason"</em>. <strong>Personal study and research only, at your own risk</strong></td></tr>
+<tr><td nowrap><strong>X</strong></td><td nowrap>—</td><td nowrap>—</td><td>HKEX (CCASS)</td><td>Terms explicitly prohibit <em>"robot" / "bot" / "spider" / "scraper"</em>, <em>"whether or not for gain"</em> → <strong>this project ships no adapter for it</strong></td></tr>
+</tbody>
+</table>
+
+A working HKEX shareholding layer was removed. Shipping scraping code that violates a source's terms would defeat the point of grading sources in the first place.
+
+**Why keep tier-D Yahoo and Nasdaq?** The difference is whether a substitute exists: Yahoo is the only source for HK K-lines and for markets beyond the US and HK, and Nasdaq is the only key-free earnings calendar. So the code stays and the terms are quoted in full; whether to use them is the user's call under those terms.
+
+The gate really fires, and it is not a documentation convention:
+
+- `commercial_use=false`: S / B / C / D are all callable; C / D carry `warnings`.
+- `commercial_use=true`: S passes; tier B is denied by default and can be whitelisted per source; C / D raise `ComplianceError` and **never walk the fallback chain to get around it**.
+- If every source on the chain is denied by compliance, the call raises `ComplianceError` instead of silently degrading (DEC-005).
+
+---
+
+## Quick start
+
+Distribution name `tickhub-us` · Python package `tickhub_us` · CLI `th-us`. Requires Python ≥ 3.11.
+
+**3 steps, 2 minutes.**
+
+```bash
+# 1. Install (once the PyPI release is live: pip install tickhub-us)
+git clone https://github.com/QuotaFuse-ai/TickHub-US.git
+pip install -e TickHub-US
+# development
+pip install -e "TickHub-US[dev]"
+
+# 2. Declare your SEC contact (EDGAR requires a real name + email; missing → E_CONFIG)
+export SEC_CONTACT="Zhang San zhangsan@example.com"
+
+# 3. Try one call
+th-us quote get AAPL
+th-us quote get AAPL --output json      # stdout is JSON only, logs go to stderr
+```
+
+A real response, captured 2026-10-26 (fields elided):
 
 ```json
 {
@@ -96,9 +170,9 @@ th-us quote get AAPL
   "source": "sina",
   "compliance_tier": "C",
   "freshness": "realtime",
-  "fetched_at": "2026-10-26T08:07:11Z",
+  "fetched_at": "2026-10-26T08:35:47Z",
   "cache_hit": false,
-  "trace_id": "e39a31c0c2fe4726",
+  "trace_id": "54dc2aebd9904304",
   "warnings": ["新浪财经 属 Tier C：商用需事先书面许可，当前为非商用调用。"],
   "attempts": [
     { "provider": "polygon", "status": "disabled" },
@@ -107,143 +181,47 @@ th-us quote get AAPL
 }
 ```
 
-注意 `compliance_tier` 与 `warnings`：这条数据走新浪，属 Tier C，**商用调用会被直接拒绝**；
-`attempts` 里能看到 Polygon 因未配置密钥被跳过、新浪命中。这就是「合规落到调用点」的样子。
+Look at `compliance_tier` and `warnings`: this row came from Sina, a tier-C source, so the same call with `commercial_use=true` is rejected outright. `attempts` shows Polygon skipped for lack of a key and Sina answering.
 
-同一套工具，换个子命令就能取别的东西：
+### One-click install
 
-```bash
-th-us quote get 00700                     # 港股行情
-th-us quote kline TSLA --interval 1d      # K 线（美股回溯至 1984）
-th-us quote indicators AAPL               # MA / MACD / RSI / BOLL
-th-us finance report AAPL --type 10-K     # SEC 申报（需 SEC_CONTACT）
-th-us finance 13f 1067983                 # 伯克希尔 13F
-th-us options flow SPY                    # 期权异动（vol/OI > 1 = 新建仓）
-th-us macro rates                         # 全球央行政策利率
-th-us mcp tools                           # 41 个工具名
-th-us source list                         # 各域降级链与级别
-```
-
----
-
-## 为什么选它
-
-一句话：**直接调接口给你自由，聚合库给你广度，TickHub-US 给你「模型不写代码也能取到带出处、带合规口径的数」。**
-
-| 维度 | TickHub-US | 直接调 Yahoo / 东财等接口 | akshare 等聚合库（A 股为主） | 付费行情 API |
-|---|---|---|---|---|
-| 调用方式 | MCP 工具、CLI、Python 共用一套返回 | 自己拼 URL、带 UA / crumb、解析字段 | Python 函数，每个函数一套 DataFrame | SDK + 订阅 |
-| 鉴权 | 报价零密钥；SEC 只要一个联系邮箱 | 自己维护 cookie、crumb、限流 | 零密钥 | 注册、付费、配额 |
-| 合规口径 | 每个源标 S / B / C / D，商用自动拦截并留痕 | 条款要自己读、自己判断 | 不区分 | 合同覆盖 |
-| 多源降级 | YAML 声明降级链，逐源记录 attempts | 自己写重试与兜底 | 部分支持 | 通常单源 |
-| 美股 / 港股 | 美股 + 港股行情 K 线，台股走官方开放数据 | 各站接口不一致 | 以 A 股为主 | 按套餐另购 |
-| SEC 深度 | 申报、全文检索、XBRL、13F、Form 4，全免费 S 级 | 需自己实现 CIK 映射与分页 | 部分覆盖 | 通常另购 |
-| 返回结构 | 统一 envelope，含 `source` / `freshness` / `trace_id` | 原始 JSON，字段随源站改版 | DataFrame | 各家不同 |
-| 许可 / 成本 | Apache-2.0，数据按各源条款 | — | MIT / Apache | 商业订阅 |
-| 最适合 | AI Agent、需要合规口径的自动化取数 | 深度定制单个接口 | 数据探索与研究 | 有 SLA 要求的机构 |
-
----
-
-## 架构
-
-```
-TickHub-US · MCP Server + CLI · v1.0.0
-│
-├── 接入层      MCP stdio / Streamable HTTP（41 个工具） + th-us CLI（10 组命令）
-│              ↳ 入口强制 commercial_use，缺失即 ComplianceError
-│
-├── 编排层      降级链（config/sources.yaml）→ 逐源尝试 → attempts 全量记录
-│              合规拦截（config/compliance.yaml）→ Tier 判定 → 拒绝即不降级
-│              缓存（Redis，不可用时自动退化为进程内 LRU）→ 按域 TTL
-│
-├── 业务域      行情 / K线 / 指标 / 资金流 / 卖空 / 波动率 / 台股
-│              基本面 / 三表 / 关键指标 / 分析师 / 机构持仓
-│              期权链 / 异动 / CBOE 报价
-│              SEC 申报 / 每日流 / 全文检索 / XBRL / 内部人 / 13F
-│              宏观 / 利率 / 汇率 / 能源
-│
-└── 适配层      20 个 Provider，每个登记 compliance_source
-               SEC EDGAR · Treasury · CFTC · Fed Board · NY Fed · BIS · ECB · EIA · EIA 现货
-               TWSE · TPEx · FINRA · CBOE · 东财 · 新浪 · 腾讯 · Polygon · Yahoo · Nasdaq · 本地计算
-```
-
-> **设计取舍**：数据源优先级写在 YAML 而不是代码里，改一行就能换降级顺序；合规等级同理，代码只认 `compliance_source`。这样"某源条款变了"是一次配置变更，不是一次发版。
-
----
-
-## 合规分级
-
-各源条款差异极大，**"官方"不等于"可自由使用"**。以下结论来自逐家实读条款原文，全文见 [`config/compliance.yaml`](config/compliance.yaml)：
-
-<table>
-<thead>
-<tr><th nowrap>级别</th><th nowrap>可商用</th><th nowrap>可再分发</th><th>源</th><th>依据</th></tr>
-</thead>
-<tbody>
-<tr><td nowrap><strong>S</strong></td><td nowrap>✅</td><td nowrap>✅</td><td>SEC EDGAR · Treasury · CFTC · Fed Board · NY Fed · BIS · ECB · EIA（库存）· TWSE · TPEx · 本地指标计算</td><td>EDGAR 明示 <em>"for free"</em> 且允许脚本访问，硬上限 10 req/s（本项目设为 8）；美联储 <em>"public domain"</em>；NY Fed 允许 <em>"personal or business purposes"</em> 与自动化访问；BIS <em>"unrestricted"</em>；ECB <em>"reused free of charge"</em>；EIA 自有数据 <em>"public domain"</em>；台湾两家数据集登记于政府资料开放平台，适用《政府资料开放授权条款》。<strong>BIS / ECB / Fed / TWSE / TPEx 须署名；ECB 数据不得修改；TWSE / TPEx 转载须完整不得增删</strong></td></tr>
-<tr><td nowrap><strong>B</strong></td><td nowrap>⚠️逐项核实</td><td nowrap>❌</td><td>FINRA · EIA 现货价</td><td>FINRA 数据文件主动发布，但条款禁止 <em>"data mining, scraping or harvesting tools"</em>，并声明 <em>"non-commercial use"</em>。EIA 的 WTI / 布伦特 / Henry Hub 现货价来自 <em>"Refinitiv, an LSEG business"</em>，第三方材料超出合理使用须版权方书面许可</td></tr>
-<tr><td nowrap><strong>C</strong></td><td nowrap>❌需授权</td><td nowrap>❌</td><td>CBOE · 东财 · 新浪 · 腾讯 · Polygon</td><td>Cboe（期权链、波动率指数）要求 <em>"approval in advance"</em> + <em>"license agreement"</em>；东财 / 新浪 / 腾讯为站点前端接口，仅个人研究；Polygon 的订阅密钥不证明含商用 / 再分发权利，需另行确认</td></tr>
-<tr><td nowrap><strong>D</strong></td><td nowrap>❌</td><td nowrap>❌</td><td>Yahoo Finance · Nasdaq</td><td>条款禁止未经许可的自动抓取。Yahoo：<em>"using any automated means… for any purpose without our express, prior permission"</em>；Nasdaq：<em>"any process, whether automated or manual, to capture data… for any reason"</em>。<strong>仅供个人学习研究，风险自负</strong></td></tr>
-<tr><td nowrap><strong>X</strong></td><td nowrap>—</td><td nowrap>—</td><td>HKEX（CCASS）</td><td>条款明文禁止 robot / bot / spider / scraper，且适用于"不论是否营利" → <strong>本仓库不提供该适配器</strong></td></tr>
-</tbody>
-</table>
-
-一个已跑通的 HKEX 席位持股层被删掉了——发布违反条款的抓取代码，会让"给数据源分级"这件事本身失去意义。
-
-**为什么 D 级的 Yahoo / Nasdaq 还留着？** 区别只在于有没有替代：Yahoo 是港股 K 线与美港以外市场 K 线的唯一来源，Nasdaq 是财报日历唯一免 key 的来源。所以代码保留、条款照贴，用不用由使用者按条款自行判断。
-
-拦截是真的会生效，不是文档约定：
-
-- `commercial_use=false`：S / B / C / D 均可调用，C / D 附 `warnings`；
-- `commercial_use=true`：S 放行；Tier B 默认拒绝，可逐项放行；C / D 直接抛 `ComplianceError`，**不会沿降级链绕过**；
-- 链上所有源都被合规拒绝时抛 `ComplianceError`，绝不静默降级（DEC-005）。
-
----
-
-## 快速开始
-
-包名 `tickhub-us` · Python 包 `tickhub_us` · CLI `th-us`。要求 Python ≥ 3.11。
-
-**3 步，2 分钟。**
+Four distribution channels, one code base — PyPI wheel / sdist, GitHub Release assets, GHCR container image, and source install. The first two become available once the release workflow has run; see [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
 
 ```bash
-# 1. 安装（PyPI 上架后一行即可：pip install tickhub-us）
-git clone https://github.com/QuotaFuse-ai/TickHub-US.git
-pip install -e TickHub-US
-# 开发环境
-pip install -e "TickHub-US[dev]"
-
-# 2. 声明 SEC 联系方式（EDGAR 要求真实姓名 + 邮箱，缺失会直接报错 E_CONFIG）
-export SEC_CONTACT="Zhang San zhangsan@example.com"
-
-# 3. 试一条
+# PyPI (after v1.0.0 is published)
+pip install tickhub-us
 th-us quote get AAPL
-th-us quote get AAPL --output json      # stdout 只有 JSON，日志走 stderr
+
+# Container (stdio, launched by the MCP client)
+docker run --rm -i -e SEC_CONTACT="Zhang San zhangsan@example.com" \
+  ghcr.io/quotafuse-ai/tickhub-us
+
+# Container (HTTP, published to loopback only)
+# Binding a non-loopback address inside the container requires a bearer token
+# and a Host allowlist, so the two env vars below are not optional.
+docker run --rm -p 127.0.0.1:8001:8001 \
+  -e MCP_HTTP_TOKEN=change-me \
+  -e MCP_HTTP_ALLOWED_HOSTS=127.0.0.1:8001 \
+  ghcr.io/quotafuse-ai/tickhub-us \
+  mcp http --host 0.0.0.0 --port 8001
 ```
 
-四种分发包一套代码：PyPI wheel / sdist、GitHub Release 附件、GHCR 容器镜像、源码安装。
-发布流程与镜像用法见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+`pip install` places `config/sources.yaml` and `config/compliance.yaml` under `<prefix>/share/tickhub-us/config`, so the CLI works from any directory. Source installs find the repo's `config/` automatically; `TICKHUB_US_CONFIG_DIR` overrides both.
+
+### Connect to an MCP client
 
 ```bash
-# 容器（默认 stdio，由 MCP 客户端拉起）
-docker build -t tickhub-us .
-docker run --rm -i -e SEC_CONTACT="Zhang San zhangsan@example.com" tickhub-us
-```
-
-### 接进 MCP 客户端
-
-```bash
-# stdio（本地 Agent 首选）
+# stdio (preferred for local agents)
 th-us mcp stdio
 
 # Streamable HTTP
 th-us mcp http --host 127.0.0.1 --port 8001
 
-# 同时拉起两个通道
+# Both at once
 th-us start-all
 ```
 
-MCP 客户端配置示例（Claude Desktop 风格）：
+MCP client configuration (Claude Desktop style):
 
 ```json
 {
@@ -257,213 +235,252 @@ MCP 客户端配置示例（Claude Desktop 风格）：
 }
 ```
 
-### 商用标记
+### Commercial calls
 
-所有取数接口都要求显式传入 `commercial_use`（MCP 工具参数 / CLI `--commercial-use`），
-这是唯一能让"合规"落到调用点的机制——Agent 不会在不知情的情况下触犯数据源条款。
+Every data call requires an explicit `commercial_use` (an MCP tool argument, or `--commercial-use` on the CLI). That is the only mechanism that puts compliance at the call site — an agent cannot violate a source's terms without saying so.
 
 ```bash
-# 允许 Tier B 的指定源（白名单非空即权威口径）
+# Whitelist specific tier-B sources (a non-empty whitelist is authoritative)
 export TICKHUB_US_ALLOW_TIER_B_SOURCES=finra,eia_spot
 
-# 或放行全部 Tier B（粗粒度开关）
+# Or allow all tier-B sources (coarse switch)
 export TICKHUB_US_ALLOW_TIER_B_COMMERCIAL=true
 
-# Polygon 商用：订阅密钥之外还需显式确认协议
+# Polygon commercial use: the key alone is not enough, confirm the subscription
 export POLYGON_API_KEY=...
 export TICKHUB_US_POLYGON_COMMERCIAL_BASIS=true
 ```
 
 ---
 
-## 端点
+## Endpoints
 
-**价格类** — 新浪 / 腾讯 / 东财实时报价（美股 + 港股）· 新浪 K 线（美股回溯至 1984）· Yahoo K 线（港股与美港以外市场）· MA / EMA / MACD / RSI / KDJ / BOLL 本地计算。
+**Price** — Sina / Tencent / Eastmoney real-time quotes (US + HK) · Sina K-lines (US back to 1984) · Yahoo K-lines (HK and markets beyond US/HK) · MA / EMA / MACD / RSI / KDJ / BOLL computed locally.
 
-**价值类** — 东财三表 + 关键指标（含港股）· Yahoo quoteSummary 结构化三表 / 分析师预期 / 机构持仓 · SEC XBRL companyfacts。
+**Value** — Eastmoney three statements + key indicators (including HK) · Yahoo quoteSummary structured statements / analyst estimates / institutional holders · SEC XBRL companyfacts.
 
-**资金 / 情绪类 ⭐** — FINRA 全市场每日空头成交量与做空余额（含回补天数、排行）· CBOE 期权链（IV + 完整希腊字母）与异动识别 · CBOE 波动率指数（VIX 1990 年起）与 VIX 期限结构 · 东财日级资金流。
+**Flow & positioning ⭐** — FINRA market-wide daily short volume and short interest (with days to cover and rankings) · CBOE options chains (IV + full Greeks) and unusual-flow detection · CBOE volatility indices (VIX since 1990) and the VIX term structure · Eastmoney daily fund flow.
 
-**申报 / 事件类 ⭐** — EDGAR submissions · 每日索引事件流（当日 Form 4 / 8-K / 13F）· 2001 至今全文检索 · Form 4 内部人逐笔 · 13F 机构持仓明细 · XBRL frames 全市场横截面（免费 screener）。
+**Filings & events ⭐** — EDGAR submissions · daily index event stream (same-day Form 4 / 8-K / 13F) · full-text search back to 2001 · Form 4 insider trades line by line · 13F institutional holdings · XBRL frames market-wide cross-section (a free screener).
 
-**宏观 / 利率 ⭐** — 美债收益率曲线 · CFTC COT · 财报日历 · 财政部拍卖与联邦债务 · BIS 全球央行政策利率 · ECB 汇率 / 利率 / 收益率曲线 · NY Fed SOFR / EFFR · Fed Board H.10 / H.6。
+**Macro / rates ⭐** — Treasury yield curve · CFTC COT · earnings calendar · Treasury auctions and federal debt · BIS central-bank policy rates · ECB FX / rates / yield curve · NY Fed SOFR / EFFR · Fed Board H.10 / H.6.
 
-**台股 / 能源 ⭐** — 证交所 + 柜买中心官方开放接口（行情 / 本益比 / 月营收 / 融资融券）· EIA 原油 / 天然气每周库存与现货价格。
+**Taiwan / energy ⭐** — TWSE + TPEx official open APIs (quotes / P/E / monthly revenue / margin) · EIA weekly crude and natural gas inventories plus spot prices.
 
-**工具类** — 股票搜索 · 全市场列表 · 个股与关键词资讯 · ticker ↔ CIK。
+**Tools** — stock search · full-market list · per-symbol and keyword news · ticker ↔ CIK.
 
 <details>
-<summary>展开完整端点表（按域，含数据源与级别）</summary>
+<summary>Full endpoint tables (by domain, with source and tier)</summary>
 
 <br>
 
-### 行情 / K 线 / 技术指标
+### Quotes / K-lines / technical indicators
 
-| 端点 | 数据源（级别） | 数据 |
+| Endpoint | Sources (tier) | Data |
 |---|---|---|
-| `th-us quote get` / `th_us_get_quote` | Polygon(C) → 新浪(C) → 腾讯(C) → 东财(C) | 美股 / 港股实时快照：现价、涨跌、量、52 周高低 |
-| `th-us quote kline` / `th_us_get_market_data` | Polygon(C) → 新浪(C) → Yahoo(D) | 日 / 周 / 月 / 分钟 OHLCV，美股回溯至 1984 |
-| `th-us quote indicators` / `th_us_technical_indicators` | 本地计算(S) | MA / EMA / MACD / RSI / KDJ / BOLL，底层 K 线等级记入 `underlying` |
-| `th-us quote flow` | 东财(C) | 日级主力 / 大单 / 中单 / 小单资金流 |
-| `th-us quote list` / `th_us_get_market_list` | 东财(C) | 美股 / 港股全市场列表与分页 |
-| `th-us quote taiwan` / `tw-market` | TWSE(S) → TPEx(S) → Yahoo(D) | 台股行情、本益比、月营收、融资融券 |
-| `th-us quote search` / `th_us_search_stocks` | Yahoo(D) → 东财(C) → SEC(S) | 中英文股票搜索 |
-| `th-us quote news` / `th_us_get_news` | Yahoo(D) | 个股或关键词资讯 |
+| `th-us quote get` / `th_us_get_quote` | Polygon(C) → Sina(C) → Tencent(C) → Eastmoney(C) | US / HK real-time snapshot: last, change, volume, 52-week high/low |
+| `th-us quote kline` / `th_us_get_market_data` | Polygon(C) → Sina(C) → Yahoo(D) | Daily / weekly / monthly / minute OHLCV, US back to 1984 |
+| `th-us quote indicators` / `th_us_technical_indicators` | local(S) | MA / EMA / MACD / RSI / KDJ / BOLL; the underlying K-line's tier is recorded in `underlying` |
+| `th-us quote flow` | Eastmoney(C) | Daily main / large / medium / small order fund flow |
+| `th-us quote list` / `th_us_get_market_list` | Eastmoney(C) | Full US / HK market list with paging |
+| `th-us quote taiwan` / `tw-market` | TWSE(S) → TPEx(S) → Yahoo(D) | Taiwan quotes, P/E, monthly revenue, margin trading |
+| `th-us quote search` / `th_us_search_stocks` | Yahoo(D) → Eastmoney(C) → SEC(S) | Stock search in Chinese and English |
+| `th-us quote news` / `th_us_get_news` | Yahoo(D) | News by ticker or keyword |
 
-### 卖空 / 波动率 ⭐
+### Short data / volatility ⭐
 
-| 端点 | 数据源（级别） | 数据 |
+| Endpoint | Sources (tier) | Data |
 |---|---|---|
-| `short-volume` / `short-volume-all` / `short-volume-rank` | FINRA(B) | 每日空头成交量：个股时序、全市场、占比排行 |
-| `short-interest` / `short-interest-all` / `short-interest-rank` | FINRA(B) | 每月两期未平仓空头、回补天数、较上期变化与排行 |
-| `volatility` / `th_us_get_volatility` | CBOE(C) | VIX（1990 起）/ VIX9D / VIX3M / VVIX / SKEW / OVX / GVZ 日线 |
-| `vix-structure` | CBOE(C) | 最新各期限 VIX，判断 contango / 倒挂，附长短端差 |
+| `short-volume` / `short-volume-all` / `short-volume-rank` | FINRA(B) | Daily short volume: per-symbol series, market-wide, ratio ranking |
+| `short-interest` / `short-interest-all` / `short-interest-rank` | FINRA(B) | Open short positions twice a month, days to cover, change vs prior period and rankings |
+| `volatility` / `th_us_get_volatility` | CBOE(C) | VIX (since 1990) / VIX9D / VIX3M / VVIX / SKEW / OVX / GVZ daily |
+| `vix-structure` | CBOE(C) | Latest VIX at each tenor, contango vs backwardation, long-short spread |
 
-### 基本面
+### Fundamentals
 
-| 端点 | 数据源（级别） | 数据 |
+| Endpoint | Sources (tier) | Data |
 |---|---|---|
-| `th-us finance stats` / `th_us_get_fundamentals` | 东财(C) → Yahoo(D) → SEC(S) | 估值、盈利、增长、目标价、公司概况 |
-| `th-us finance statements` / `get_financial_statements` | 东财(C) | 三表（美股 / 港股） |
-| `th-us finance yahoo-statements` | Yahoo(D) | 结构化三表（年度 / 季度） |
-| `th-us finance indicators` / `get_key_indicators` | 东财(C) | 关键财务指标 |
-| `th-us finance analyst` / `get_analyst_estimates` | Yahoo(D) | 分析师预期与评级趋势 |
-| `th-us finance holders` / `get_institutional_holders` | Yahoo(D) | 机构持股概览与前十大 |
+| `th-us finance stats` / `th_us_get_fundamentals` | Eastmoney(C) → Yahoo(D) → SEC(S) | Valuation, earnings, growth, target price, company profile |
+| `th-us finance statements` / `get_financial_statements` | Eastmoney(C) | Three statements (US / HK) |
+| `th-us finance yahoo-statements` | Yahoo(D) | Structured three statements (annual / quarterly) |
+| `th-us finance indicators` / `get_key_indicators` | Eastmoney(C) | Key financial indicators |
+| `th-us finance analyst` / `get_analyst_estimates` | Yahoo(D) | Analyst estimates and rating trend |
+| `th-us finance holders` / `get_institutional_holders` | Yahoo(D) | Institutional holdings overview and top ten |
 
-### 期权
+### Options
 
-| 端点 | 数据源（级别） | 数据 |
+| Endpoint | Sources (tier) | Data |
 |---|---|---|
-| `th-us options chain` / `get_options_chain` | CBOE(C) → Yahoo(D) | 全链 + IV + delta / gamma / vega / theta / rho |
-| `th-us options flow` / `get_options_flow` | CBOE(C) → Yahoo(D) | 异动识别（vol/OI > 1 = 新建仓），含 0DTE 筛选 |
-| `th-us options cboe` | CBOE(C) | CBOE 官方标的延时报价 |
+| `th-us options chain` / `get_options_chain` | CBOE(C) → Yahoo(D) | Full chain + IV + delta / gamma / vega / theta / rho |
+| `th-us options flow` / `get_options_flow` | CBOE(C) → Yahoo(D) | Unusual-flow detection (vol/OI > 1 = new positioning), with a 0DTE filter |
+| `th-us options cboe` | CBOE(C) | CBOE official delayed quotes for the underlying |
 
-### 申报 / 内部人 / 13F ⭐
+### Filings / insiders / 13F ⭐
 
-| 端点 | 数据源（级别） | 数据 |
+| Endpoint | Sources (tier) | Data |
 |---|---|---|
-| `th-us finance report` / `search_filings` | SEC(S) | 单公司申报列表（10-K / 10-Q / 8-K …） |
-| `th-us finance feed` / `get_filing_feed` | SEC(S) | EDGAR 每日索引事件流，当日全市场 |
-| `th-us finance fulltext` / `fulltext_search` | SEC(S) | 申报正文全文检索，回溯至 2001 |
-| `th-us finance insider` / `get_insider_trades` | SEC(S) | Form 4 逐笔：类型、股数、价格、交易后持股、10b5-1 标记 |
-| `th-us finance 13f` / `get_13f_holdings` | SEC(S) | 机构季度持仓，按市值排序含占比，可与封面总额对账 |
-| `th-us finance xbrl` / `get_xbrl_facts` | SEC(S) | companyfacts 原始视图 |
-| `th-us finance frame` / `screen_market` | SEC(S) | XBRL frames 全市场横截面 = 免费 screener |
-| `th-us finance cik` / `lookup_cik` | SEC(S) | ticker → 10 位 CIK |
+| `th-us finance report` / `search_filings` | SEC(S) | One company's filing list (10-K / 10-Q / 8-K …) |
+| `th-us finance feed` / `get_filing_feed` | SEC(S) | EDGAR daily index event stream, whole market for the day |
+| `th-us finance fulltext` / `fulltext_search` | SEC(S) | Full-text search of filing bodies back to 2001 |
+| `th-us finance insider` / `get_insider_trades` | SEC(S) | Form 4 line by line: type, shares, price, holdings after, 10b5-1 flag |
+| `th-us finance 13f` / `get_13f_holdings` | SEC(S) | Quarterly institutional holdings, sorted by value with weights, reconcile against the cover total |
+| `th-us finance xbrl` / `get_xbrl_facts` | SEC(S) | Raw companyfacts view |
+| `th-us finance frame` / `screen_market` | SEC(S) | XBRL frames market-wide cross-section = a free screener |
+| `th-us finance cik` / `lookup_cik` | SEC(S) | ticker → 10-digit CIK |
 
-### 宏观 / 利率 / 汇率 ⭐
+### Macro / rates / FX ⭐
 
-| 端点 | 数据源（级别） | 数据 |
+| Endpoint | Sources (tier) | Data |
 |---|---|---|
-| `th-us macro curve` / `get_treasury_yield_curve` | Treasury(S) | 收益率曲线 1M ~ 30Y |
-| `th-us macro cot` / `get_cot` | CFTC(S) | COT 持仓报告 |
-| `th-us macro earnings` | Nasdaq(D) | 财报日历（含盘前盘后与 EPS 预期） |
-| `th-us macro fiscal` / `get_treasury_fiscal` | Treasury(S) | 国债拍卖、联邦债务、平均利率 |
-| `th-us macro rates` / `get_policy_rates` | BIS(S) → ECB(S) → NY Fed(S) → Fed(S) → Treasury(S) | 全球央行政策利率（一次可覆盖 48 个经济体） |
-| `th-us macro ecb-fx` / `ecb-rates` / `ecb-curve` / `ecb-series` | ECB(S) | 欧元参考汇率、三大利率、欧元区曲线、任意序列 |
-| `th-us macro nyfed` / `get_nyfed_rates` | NY Fed(S) | SOFR / EFFR / OBFR / TGCR / BGCR，含分位数与成交量 |
-| `th-us macro fed` / `get_fed_releases` | Fed Board(S) | H.10 汇率、H.6 货币存量 |
+| `th-us macro curve` / `get_treasury_yield_curve` | Treasury(S) | Yield curve 1M ~ 30Y |
+| `th-us macro cot` / `get_cot` | CFTC(S) | COT positioning report |
+| `th-us macro earnings` | Nasdaq(D) | Earnings calendar (pre/post market and EPS estimates) |
+| `th-us macro fiscal` / `get_treasury_fiscal` | Treasury(S) | Treasury auctions, federal debt, average interest rates |
+| `th-us macro rates` / `get_policy_rates` | BIS(S) → ECB(S) → NY Fed(S) → Fed(S) → Treasury(S) | Global central-bank policy rates (48 economies in one call) |
+| `th-us macro ecb-fx` / `ecb-rates` / `ecb-curve` / `ecb-series` | ECB(S) | Euro reference rates, three key rates, euro-area curve, any series |
+| `th-us macro nyfed` / `get_nyfed_rates` | NY Fed(S) | SOFR / EFFR / OBFR / TGCR / BGCR, with percentiles and volume |
+| `th-us macro fed` / `get_fed_releases` | Fed Board(S) | H.10 FX, H.6 money stock |
 
-### 能源 ⭐
+### Energy ⭐
 
-| 端点 | 数据源（级别） | 数据 |
+| Endpoint | Sources (tier) | Data |
 |---|---|---|
-| `th-us macro energy` / `get_energy_prices` | EIA 现货(B) | WTI（1986 起）/ 布伦特 / Henry Hub 现货日价 |
-| `th-us macro inventories` / `get_energy_inventories` | EIA(S) | 原油（商业 + 战略储备）、汽油、馏分油、天然气每周库存 |
+| `th-us macro energy` / `get_energy_prices` | EIA spot(B) | WTI (since 1986) / Brent / Henry Hub daily spot prices |
+| `th-us macro inventories` / `get_energy_inventories` | EIA(S) | Weekly crude (commercial + SPR), gasoline, distillate and natural gas inventories |
 
-### 诊断
+### Diagnostics
 
-| 端点 | 数据 |
+| Endpoint | Data |
 |---|---|
-| `th-us compliance check` / `list` | 查询某源的 Tier 判定与条款依据 |
-| `th-us source list` / `chain` | 查看数据源与降级链 |
-| `th-us cache status` / `clear` | 缓存状态与清理 |
-| `th-us config show` | 当前运行时配置（密钥脱敏） |
+| `th-us compliance check` / `list` | Look up a source's tier decision and the terms behind it |
+| `th-us source list` / `chain` | Show sources and fallback chains |
+| `th-us cache status` / `clear` | Cache status and clearing |
+| `th-us config show` | Current runtime settings (secrets redacted) |
 
 </details>
 
 ---
 
-## 使用示例
+## Usage examples
 
-跟你的 AI 助手说这些话就能激活（括号内为等价的 CLI 命令）：
+Say these to your AI assistant to trigger the tools (the CLI equivalent is in parentheses):
 
-| 场景 | 说什么 |
+| Scenario | What to say |
 |---|---|
-| 美股 / 港股行情 | 「AAPL 现在什么价，PE 多少」·「腾讯 00700 今天行情」（`th-us quote get 00700`） |
-| K 线 | 「拉 TSLA 最近半年日 K」 （`th-us quote kline TSLA`） |
-| 技术分析 | 「AAPL 的 MACD 和 RSI 有没有金叉」（`th-us quote indicators AAPL`） |
-| 财报 / 估值 | 「苹果最新一季利润表」·「BABA 的 PE/PB/ROE 和目标价」 |
-| 机构持仓 | 「哪些机构持有 NVDA，持股比例多少」 |
-| 0DTE 期权流 ⭐ | 「NVDA 的 0DTE 期权异动看一下」（`th-us options flow NVDA`） |
-| 空头成交 ⭐ | 「TSLA 本周空头成交占比趋势」 |
-| 做空余额 ⭐ | 「GME 最近几期做空余额和回补天数」 |
-| VIX 期限结构 ⭐ | 「现在 VIX 期限结构是不是倒挂」（`th-us quote vix-structure`） |
-| 内部人申报 ⭐ | 「今天有哪些 Form 4 内部人申报」（`th-us finance feed --type 4`） |
-| 内部人买卖 ⭐ | 「NVDA 高管近半年卖了多少股」（`th-us finance insider NVDA --days 180`） |
-| 13F 持仓 ⭐ | 「伯克希尔最新一季 13F 前十大持仓」（`th-us finance 13f 1067983`） |
-| 申报全文检索 ⭐ | 「哪些公司在 8-K 里首次提到 HBM4」（`th-us finance fulltext HBM4`） |
-| 全市场筛选 ⭐ | 「按 CY2025Q1 研发费用给全市场排名」（`th-us finance frame ResearchAndDevelopmentExpense`） |
-| 宏观 | 「现在 10Y-2Y 美债利差多少」（`th-us macro curve`） |
-| 全球央行 ⭐ | 「全球主要央行现在的政策利率」（`th-us macro rates`） |
-| 汇率 / 美债 ⭐ | 「欧元兑日元这个月走势」·「下周美债拍卖日程」 |
-| 台股 ⭐ | 「台积电最新收盘价和本益比」（`th-us quote taiwan 2330`） |
-| 原油 / 天然气 ⭐ | 「这周 EIA 原油库存多少」（`th-us macro inventories`） |
-| 其他市场 | 「丰田 7203.T 近一年日 K」（Yahoo，D 级） |
-| 批量对比 | 「对比 AAPL MSFT GOOGL 三家估值」 |
+| US / HK quote | "What's AAPL trading at, and its PE?" · "How's Tencent 00700 today?" (`th-us quote get 00700`) |
+| K-line | "Pull TSLA's daily K-line for the past six months" (`th-us quote kline TSLA`) |
+| Technical analysis | "Is AAPL's MACD crossing its RSI?" (`th-us quote indicators AAPL`) |
+| Statements / valuation | "Apple's latest quarterly income statement" · "BABA's PE/PB/ROE and target price" |
+| Institutional holdings | "Which institutions hold NVDA, and what percentage?" |
+| 0DTE options flow ⭐ | "Show me NVDA's 0DTE unusual options activity" (`th-us options flow NVDA`) |
+| Short volume ⭐ | "TSLA's short-volume ratio trend this week" |
+| Short interest ⭐ | "GME's recent short interest and days to cover" |
+| VIX term structure ⭐ | "Is the VIX term structure inverted right now?" (`th-us quote vix-structure`) |
+| Insider filings ⭐ | "Which Form 4 insider filings came out today?" (`th-us finance feed --type 4`) |
+| Insider trades ⭐ | "How many shares have NVDA executives sold in the past six months?" (`th-us finance insider NVDA --days 180`) |
+| 13F holdings ⭐ | "Berkshire's top ten 13F holdings last quarter" (`th-us finance 13f 1067983`) |
+| Filing full-text ⭐ | "Which companies mention HBM4 in an 8-K for the first time?" (`th-us finance fulltext HBM4`) |
+| Market-wide screen ⭐ | "Rank the whole market by R&D expense for CY2025Q1" (`th-us finance frame ResearchAndDevelopmentExpense`) |
+| Macro | "What's the 10Y-2Y Treasury spread right now?" (`th-us macro curve`) |
+| Central banks ⭐ | "Current policy rates of the major central banks" (`th-us macro rates`) |
+| FX / Treasuries ⭐ | "EUR/JPY this month" · "Next week's Treasury auction schedule" |
+| Taiwan ⭐ | "TSMC's latest close and P/E" (`th-us quote taiwan 2330`) |
+| Oil / gas ⭐ | "This week's EIA crude inventories" (`th-us macro inventories`) |
+| Other markets | "Toyota 7203.T daily K-line for the past year" (Yahoo, tier D) |
+| Batch compare | "Compare valuations of AAPL MSFT GOOGL" |
 
 ---
 
-## 数据源
+## Data sources
 
-<table>
-<thead>
-<tr><th>数据源</th><th nowrap>级别</th><th nowrap>鉴权</th><th>覆盖</th></tr>
-</thead>
-<tbody>
-<tr><td><strong>SEC EDGAR</strong></td><td nowrap><strong>S</strong></td><td nowrap>需真实 UA</td><td>申报列表 / 每日事件流 / 全文检索 / XBRL / frames / Form 4 / 13F / CIK</td></tr>
-<tr><td><strong>US Treasury</strong></td><td nowrap><strong>S</strong></td><td nowrap>无</td><td>收益率曲线 / 国债拍卖 / 联邦债务 / 平均利率</td></tr>
-<tr><td><strong>CFTC</strong></td><td nowrap><strong>S</strong></td><td nowrap>无</td><td>COT 持仓报告</td></tr>
-<tr><td><strong>Fed Board</strong></td><td nowrap><strong>S</strong></td><td nowrap>无</td><td>H.10 汇率 / H.6 货币存量（须署名）</td></tr>
-<tr><td><strong>NY Fed</strong></td><td nowrap><strong>S</strong></td><td nowrap>无</td><td>SOFR / EFFR / OBFR / TGCR / BGCR（对外展示须附声明）</td></tr>
-<tr><td><strong>BIS</strong></td><td nowrap><strong>S</strong></td><td nowrap>无</td><td>全球央行政策利率（须署名）</td></tr>
-<tr><td><strong>ECB</strong></td><td nowrap><strong>S</strong></td><td nowrap>无</td><td>欧元汇率 / 三大利率 / 欧元区收益率曲线（须署名，不得改动）</td></tr>
-<tr><td><strong>EIA</strong></td><td nowrap><strong>S</strong> / B</td><td nowrap>无</td><td>原油 / 天然气每周库存（S）· WTI / 布伦特 / Henry Hub 现货价（B：转载 Refinitiv）</td></tr>
-<tr><td><strong>台湾证交所</strong></td><td nowrap><strong>S</strong></td><td nowrap>无</td><td>上市股票行情 / 本益比 / 月营收 / 融资融券</td></tr>
-<tr><td><strong>柜买中心</strong></td><td nowrap><strong>S</strong></td><td nowrap>无</td><td>上柜股票行情 / 本益比 / 月营收 / 融资融券</td></tr>
-<tr><td><strong>FINRA</strong></td><td nowrap><strong>B</strong></td><td nowrap>无</td><td>全市场每日空头成交量 / 做空余额</td></tr>
-<tr><td><strong>CBOE</strong></td><td nowrap><strong>C</strong></td><td nowrap>无</td><td>期权链 + 希腊字母 + IV / VIX 等波动率指数</td></tr>
-<tr><td>东财（push2 / push2his / datacenter / search）</td><td nowrap>C</td><td nowrap>无</td><td>美股 + 港股行情 / 资金流 / 三表 / 关键指标 / 列表</td></tr>
-<tr><td>新浪</td><td nowrap>C</td><td nowrap>无</td><td>美股 + 港股行情、美股 K 线</td></tr>
-<tr><td>腾讯</td><td nowrap>C</td><td nowrap>无</td><td>美股 + 港股行情</td></tr>
-<tr><td>Polygon</td><td nowrap>C</td><td nowrap>API Key（可选）</td><td>美股行情与 K 线（商用须确认订阅协议）</td></tr>
-<tr><td>Yahoo Finance</td><td nowrap>D</td><td nowrap>cookie + crumb（自动）</td><td>港股 / 其他市场 K 线、三表、分析师、持仓、期权后备、搜索、资讯</td></tr>
-<tr><td>Nasdaq</td><td nowrap>D</td><td nowrap>无</td><td>财报日历</td></tr>
-</tbody>
-</table>
+| Source | Tier | Auth | Coverage |
+|--------|------|------|----------|
+| **SEC EDGAR** | **S** | real UA (`SEC_CONTACT`) | Filing lists / daily event stream / full-text search / XBRL / frames / Form 4 / 13F / CIK |
+| **US Treasury** | **S** | none | Yield curve / auctions / federal debt / average rates |
+| **CFTC** | **S** | none | COT positioning reports |
+| **Federal Reserve Board** | **S** | none | H.10 FX / H.6 money stock (attribution required) |
+| **NY Fed** | **S** | none | SOFR / EFFR / OBFR / TGCR / BGCR (notice required when shown to others) |
+| **BIS** | **S** | none | Central-bank policy rates (attribution required) |
+| **ECB** | **S** | none | EUR FX / three key rates / euro-area yield curve (attribution; no modification) |
+| **US EIA** (inventories) | **S** | none | Weekly crude / natural gas inventories (attribution recommended) |
+| **US EIA** (spot prices) | **B** | none | WTI / Brent / Henry Hub spot (Refinitiv data republished by EIA; verify before commercial use) |
+| **Taiwan Stock Exchange (TWSE)** | **S** | none | Listed stocks' quotes / P/E / monthly revenue / margin trading (attribution) |
+| **TPEx** | **S** | none | OTC stocks' quotes / P/E / monthly revenue / margin trading (attribution; tier S is this project's judgment) |
+| **FINRA** | **B** | none | Market-wide daily short volume / short interest (verify before commercial use) |
+| **CBOE** | **C** | none | Options chains + Greeks + IV / VIX and other volatility indices (needs Cboe's prior approval) |
+| Eastmoney (push2 / push2his / datacenter / search) | **C** | none | US + HK quotes / fund flow / statements / key indicators / market list |
+| Sina | **C** | none | US + HK quotes, US K-lines |
+| Tencent | **C** | none | US + HK quotes |
+| Polygon | **C** | API key (optional) | US quotes and K-lines (commercial use needs the subscription terms confirmed) |
+| Yahoo Finance | **D** | cookie + crumb (auto) | HK / other-market K-lines, statements, analysts, holders, options fallback, search, news |
+| Nasdaq | **D** | none | Earnings calendar |
+| Local indicator computation | **S** | none | MA / EMA / MACD / RSI / KDJ / BOLL computed from fetched K-lines |
 
-**级别含义**：**S** = 政府与央行数据，可商用可再分发（部分要求署名）· **B** = 主动公开但条款受限，商用需逐项核实、不得再分发 · **C** = 需事先授权或仅个人研究 · **D** = 条款禁止未经许可的自动抓取，仅供个人学习研究、风险自负。依据见 [合规分级](#合规分级)。
+**Tiers:** **S** = government and central-bank data, commercial + redistribution OK (some require attribution) · **B** = published but terms-restricted, verify before commercial use and do not redistribute · **C** = needs prior approval or personal research only · **D** = terms prohibit automated access without permission; personal study and research only, at your own risk. Quoted basis: [Compliance tiers](#compliance-tiers).
 
-所有请求统一走 `core/http.py`：按主机限流（SEC 8 req/s，CFTC / FINRA / CBOE 4 req/s，Nasdaq 2 req/s，默认 5 req/s）、指数退避重试、8 MB 响应上限、跨主机跳转只放行 `config/sources.yaml` 登记的白名单主机。
+All requests go through `core/http.py`: per-host rate limiting (SEC 8 req/s, CFTC / FINRA / CBOE 4 req/s, Nasdaq 2 req/s, default 5 req/s), exponential-backoff retries, an 8 MB response cap, and cross-host redirects allowed only to hosts registered in `config/sources.yaml`.
 
 ---
 
-## 降级链与缓存
+## Configuration
 
-`config/sources.yaml` 为每个数据域定义一条链，失败（限流 / 无数据 / 合规拒绝 / 上游 5xx）会记录到 `DataEnvelope.attempts` 并继续尝试下一个：
+Everything is environment variables. A `.env` file in the current directory (or its parent) is loaded automatically on first use. `th-us config show` prints the effective settings with secrets redacted.
+
+### Data-source access
+
+| Variable | Default | What it does |
+|---|---|---|
+| `SEC_CONTACT` | — | Real name + email placed in the EDGAR User-Agent. **Required for every SEC tool**; missing raises `E_CONFIG` |
+| `POLYGON_API_KEY` | — | Optional Polygon key. Without it the `polygon` provider is skipped and the chain moves on |
+| `TICKHUB_US_ALLOW_TIER_B_SOURCES` | — | Comma-separated tier-B whitelist (`finra,eia_spot`). A non-empty list is authoritative: unlisted sources stay denied even if the global switch is on |
+| `TICKHUB_US_ALLOW_TIER_B_COMMERCIAL` | `false` | Coarse switch: allow all tier-B sources for commercial calls |
+| `TICKHUB_US_POLYGON_COMMERCIAL_BASIS` | `false` | Explicit acknowledgement that your Polygon subscription permits commercial use; the key alone is not enough |
+| `YAHOO_ENABLE` | `true` | Set to `false` to disable the tier-D Yahoo provider entirely |
+
+### Runtime and cache
+
+| Variable | Default | What it does |
+|---|---|---|
+| `TICKHUB_US_CONFIG_DIR` | auto | Config directory override. Resolution order: this variable → `./config` → repo layout → `<prefix>/share/tickhub-us/config` |
+| `TICKHUB_US_TTL_SECONDS` | — | Global TTL override in seconds. Without it each domain uses the `ttl` from `sources.yaml` |
+| `CACHE_ENV` | `prod` | `prod` / `dev` (caps TTL at 60 s) / `off` (disable caching). Also namespaces Redis keys |
+| `REDIS_URL` | `redis://127.0.0.1:6379/0` | Redis connection. Unreachable Redis degrades to the in-process LRU with a warning |
+| `LOG_LEVEL` | `info` | Log level |
+| `HTTP_TIMEOUT` | `20.0` | Per-request timeout in seconds |
+| `HTTP_RETRIES` | `2` | Retry count per request |
+| `HTTPS_PROXY` / `HTTP_PROXY` | — | Standard proxy variables; `requests` reads them automatically |
+
+### MCP HTTP server
+
+| Variable | Default | What it does |
+|---|---|---|
+| `MCP_HTTP_HOST` | `127.0.0.1` | Bind address. Non-loopback requires `MCP_HTTP_TOKEN`; `0.0.0.0` / `::` also requires `MCP_HTTP_ALLOWED_HOSTS` |
+| `MCP_HTTP_PORT` | `8001` | Listen port |
+| `MCP_HTTP_PATH` | `/mcp` | Streamable HTTP path |
+| `MCP_HTTP_TOKEN` | — | Bearer token. When set, every request except `GET /healthz` must send `Authorization: Bearer <token>` |
+| `MCP_HTTP_ALLOWED_HOSTS` | — | Extra `Host` allowlist entries (comma-separated), e.g. `tickhub.internal:8001` |
+| `MCP_HTTP_ALLOWED_ORIGINS` | — | Extra `Origin` allowlist entries (comma-separated) |
+
+`commercial_use` is **not** an environment variable — it is a per-call parameter, deliberately, so that no deployment-wide setting can flip a whole process into commercial mode by accident.
+
+---
+
+## Fallback chains and cache
+
+`config/sources.yaml` defines one chain per domain. A failure (throttle / no data / compliance denial / upstream 5xx) is recorded in `DataEnvelope.attempts` and the next source is tried:
 
 ```yaml
 quote_us:  polygon → sina → tencent → eastmoney    # TTL 30s,  realtime
-fundamental: eastmoney → yahoo → sec_edgar         # TTL 12h, eod
+fundamental: eastmoney → yahoo → sec_edgar         # TTL 12h,  eod
 rates: bis → ecb → ny_fed → federal_reserve → treasury
 options_flow: cboe → yahoo                          # TTL 60s, realtime
 ```
 
-缓存按域分级：行情 30 秒、期权 60 秒、资讯 5 分钟、财报与申报 12 小时、CIK 映射 24 小时。Redis 不可用时自动降级为进程内 LRU，并在日志里说明——**降级只影响缓存，不影响数据源选择**。
+Cache TTLs are per domain: quotes 30 s, options 60 s, news 5 min, statements and filings 12 h, CIK mapping 24 h. When Redis is unavailable the cache degrades to an in-process LRU and says so in the log — **cache degradation never changes which data source is used**. Cache keys include the `commercial_use` flag, so a commercial result is never served to a non-commercial call.
 
 ## DataEnvelope
 
-所有返回值都是同一个信封，Agent 可直接消费 `source` / `freshness` / `compliance_tier` / `attempts`：
+Every response uses the same envelope, so an agent can consume `source` / `freshness` / `compliance_tier` / `attempts` directly:
 
 ```json
 {
@@ -482,45 +499,44 @@ options_flow: cboe → yahoo                          # TTL 60s, realtime
 }
 ```
 
-技术指标额外带 `underlying`，记录底层 K 线的与源——指标本身是 Tier S 的本地计算，但结果的可信度取决于输入（DEC-009）。
+(The `warnings` string is read from `config/compliance.yaml` and is currently Chinese-only; callers should treat it as opaque text, not parse it.)
 
-## MCP 工具
+Technical indicators additionally carry `underlying`, which records the source and tier of the K-lines they were computed from: the indicator itself is tier-S local computation, but its trustworthiness depends on its input (DEC-009).
 
-共 **41 个**工具，完整清单见 [`docs/specs/tickhub-us.md`](docs/specs/tickhub-us.md) §3.2。三个产品方案指定的签名：
+## MCP tools
 
-| 工具 | 说明 |
+**41 tools** in total; the full list is in [`docs/specs/tickhub-us.md`](docs/specs/tickhub-us.md) §3.2. The three signatures fixed by the product spec:
+
+| Tool | Purpose |
 |---|---|
-| `th_us_get_market_data(symbol, interval, commercial_use)` | 报价 / K 线 / 指标 |
-| `th_us_search_filings(symbol, form_type, commercial_use)` | SEC 申报检索 |
-| `th_us_get_options_flow(symbol, commercial_use)` | 期权链与异动 |
+| `th_us_get_market_data(symbol, interval, commercial_use)` | Quotes / K-lines / indicators |
+| `th_us_search_filings(symbol, form_type, commercial_use)` | SEC filing search |
+| `th_us_get_options_flow(symbol, commercial_use)` | Options chain and unusual flow |
 
-| 类别 | 工具 |
+| Category | Tools |
 |---|---|
-| 行情 / 技术面 | `get_quote`、`get_market_data`、`technical_indicators`、`get_fund_flow`、`get_volatility`（`term_structure` 切 VIX 期限结构）、`get_short_volume`、`get_short_interest`（均支持 `scope=symbol/all/rank`）、`get_taiwan_stock`、`get_taiwan_market`、`get_market_list` |
-| 基本面 | `get_fundamentals`、`get_key_indicators`、`get_financial_statements`、`get_analyst_estimates`、`get_institutional_holders` |
-| 期权 | `get_options_chain`、`get_options_flow` |
-| 申报 / 内部人 | `search_filings`、`get_filing_feed`、`fulltext_search`、`get_insider_trades`、`get_13f_holdings`、`get_xbrl_facts`、`screen_market`、`lookup_cik` |
-| 宏观 / 利率 / 能源 | `get_treasury_yield_curve`、`get_policy_rates`、`get_cot`、`get_earnings_calendar`、`get_ecb`（`kind=fx/key_rates/curve/series`）、`get_nyfed_rates`、`get_fed_releases`、`get_treasury_fiscal`、`get_energy_prices`、`get_energy_inventories` |
-| 工具 / 诊断 | `search_stocks`、`get_news`、`check_compliance`、`list_compliance_policies`、`list_providers`、`cache_status` |
+| Quotes / technicals | `get_quote`, `get_market_data`, `technical_indicators`, `get_fund_flow`, `get_volatility` (`term_structure` switches to the VIX term structure), `get_short_volume`, `get_short_interest` (both accept `scope=symbol/all/rank`), `get_taiwan_stock`, `get_taiwan_market`, `get_market_list` |
+| Fundamentals | `get_fundamentals`, `get_key_indicators`, `get_financial_statements`, `get_analyst_estimates`, `get_institutional_holders` |
+| Options | `get_options_chain`, `get_options_flow` |
+| Filings / insiders | `search_filings`, `get_filing_feed`, `fulltext_search`, `get_insider_trades`, `get_13f_holdings`, `get_xbrl_facts`, `screen_market`, `lookup_cik` |
+| Macro / rates / energy | `get_treasury_yield_curve`, `get_policy_rates`, `get_cot`, `get_earnings_calendar`, `get_ecb` (`kind=fx/key_rates/curve/series`), `get_nyfed_rates`, `get_fed_releases`, `get_treasury_fiscal`, `get_energy_prices`, `get_energy_inventories` |
+| Tools / diagnostics | `search_stocks`, `get_news`, `check_compliance`, `list_compliance_policies`, `list_providers`, `cache_status` |
 
-（表中省略 `th_us_` 前缀。41 个工具与参考实现的端点一一对齐，见 DEC-011。）
+(The `th_us_` prefix is omitted above. The 41 tools map one-to-one to spec §3.2; see DEC-011.)
 
-## MCP HTTP 安全
+## MCP HTTP security
 
-默认只监听回环地址（`127.0.0.1` / `localhost` / `[::1]`），并始终启用 DNS 重绑定防护：
-Host / Origin 白名单由 `create_app()` 显式传入，回环场景只放行回环主机。
+By default the server listens on loopback only (`127.0.0.1` / `localhost` / `[::1]`) with DNS-rebinding protection always on. The Host / Origin allowlists are passed explicitly by `create_app()`; in the loopback case only loopback hosts are allowed.
 
-对外监听是**显式动作**，缺一项就启动失败（`E_CONFIG`）：
+Listening externally is an **explicit action** — missing one requirement fails startup with `E_CONFIG`:
 
-| 场景 | 要求 |
+| Scenario | Requirement |
 |---|---|
-| `MCP_HTTP_HOST=127.0.0.1` | 无 |
-| 绑定具体网卡（如 `10.0.0.5`） | 必须设置 `MCP_HTTP_TOKEN` |
-| 绑定 `0.0.0.0` / `::` | 必须设置 `MCP_HTTP_TOKEN` + `MCP_HTTP_ALLOWED_HOSTS` |
+| `MCP_HTTP_HOST=127.0.0.1` | none |
+| Bind a specific interface (e.g. `10.0.0.5`) | `MCP_HTTP_TOKEN` is required |
+| Bind `0.0.0.0` / `::` | `MCP_HTTP_TOKEN` **and** `MCP_HTTP_ALLOWED_HOSTS` are required |
 
-设置 `MCP_HTTP_TOKEN` 后，除 `GET /healthz`（容器探针用，保持匿名）外，所有请求都必须带
-`Authorization: Bearer <token>`；校验用常量时间比较，失败返回 401 + `WWW-Authenticate: Bearer realm="tickhub-us"`。
-`/healthz` 只返回 `{"status": "ok"}`，不暴露版本与工具数（SEC-12）。
+With `MCP_HTTP_TOKEN` set, every request except `GET /healthz` (kept anonymous for container probes) must carry `Authorization: Bearer <token>`. The check uses a constant-time comparison; failures return 401 with `WWW-Authenticate: Bearer realm="tickhub-us"`. `/healthz` returns only `{"status": "ok"}` — no version, no tool count (SEC-12).
 
 ```bash
 MCP_HTTP_HOST=0.0.0.0 \
@@ -529,102 +545,97 @@ MCP_HTTP_ALLOWED_HOSTS=tickhub.internal:8001 \
 th-us mcp http
 ```
 
-## 测试与 CI
+## Testing and CI
 
-| 套件 | 用例 | 说明 |
+| Suite | Cases | Covers |
 |---|---|---|
-| 离线 | **238** | 契约、合规拦截、降级链矩阵、密钥脱敏、输入与网络加固、MCP HTTP 安全、指标 Tier 继承、线上缺陷回归 |
-| 联网冒烟 | **13** | 美股 / 港股报价 · SEC 申报与 13F · 期权异动 · VIX 历史与期限结构 · EIA 现货与库存 · BIS 政策利率 · Yahoo 基本面，默认 skip |
+| Offline | **238** | Contracts, compliance interception, fallback-chain matrix, secret redaction, input and network hardening, MCP HTTP security, indicator tier inheritance, regression tests for live defects |
+| Live smoke | **13** | US / HK quotes · SEC filings and 13F · options flow · VIX history and term structure · EIA spot and inventories · BIS policy rates · Yahoo fundamentals; skipped by default |
 
 ```bash
-# 离线全量（无需外网、无需 Redis）
+# Full offline run (no network, no Redis needed)
 pytest -m "not live"
 
-# 联网冒烟（需要 SEC_CONTACT；东财接口在境外可跳过）
+# Live smoke (needs SEC_CONTACT; Eastmoney endpoints can be skipped outside mainland China)
 SEC_CONTACT="you@example.com" TICKHUB_US_LIVE=1 pytest tests/contract/test_live_smoke.py -m live
-TICKHUB_US_LIVE_SKIP_REGIONAL=1 ...   # 跳过依赖东财 push2 的两个用例
+TICKHUB_US_LIVE_SKIP_REGIONAL=1 ...   # skip the two cases that depend on Eastmoney push2
 ```
 
-CI（`.github/workflows/ci.yml`）：
+CI (`.github/workflows/ci.yml`):
 
-- `push` / `pull_request`：Python 3.11 + 3.12 矩阵，跑 `ruff` → `compileall` → 离线测试，作为合并门禁；
-- `workflow_dispatch` 勾选 `live`：额外起一个联网作业，读取仓库变量 `SEC_CONTACT`（未配置则用例自动 skip，作业不会红）与可选 secret `POLYGON_API_KEY`，并默认跳过境外不通的东财用例。**写代码不需要密钥，跑的时候才需要。**
+- `push` / `pull_request`: Python 3.11 + 3.12 matrix, `ruff` → `compileall` → offline tests, as the merge gate;
+- `workflow_dispatch` with `live` checked: an extra networked job that reads the repository variable `SEC_CONTACT` (cases skip themselves when it is unset, so the job never goes red) and the optional `POLYGON_API_KEY` secret, and skips the Eastmoney cases that are unreachable from overseas. **Writing code needs no keys; running against live sources does.**
 
-发布用两个**手动**工作流，都不会在 push 时自动触发：
+Two **manual** release workflows, neither triggered by a push:
 
-| 工作流 | 做什么 |
+| Workflow | What it does |
 |---|---|
-| `publish.yml` | `python -m build` → `twine check --strict` → 在干净 venv 里跑一遍 wheel（证明不依赖源码树）→ 发 TestPyPI 或 PyPI（OIDC 可信发布，无 token）→ 发布到 PyPI 时顺手建 GitHub Release 并附上 sdist / wheel |
-| `docker.yml` | 构建并推送 `ghcr.io/quotafuse-ai/tickhub-us`（版本标签 + `latest`）→ 拉起来跑真机冒烟：匿名 `/healthz` 通、带 Bearer 的 MCP `initialize` 通、不带 token 的 POST 返回 401 |
+| `publish.yml` | `python -m build` → `twine check --strict` → install and run the wheel in a clean venv (proving it does not need the source tree) → publish to TestPyPI or PyPI (OIDC trusted publishing, no token) → when publishing to PyPI, also create a GitHub Release with the sdist / wheel attached |
+| `docker.yml` | Build and push `ghcr.io/quotafuse-ai/tickhub-us` (version tag + `latest`) → pull it back and run a real smoke: anonymous `/healthz` works, MCP `initialize` with a Bearer token works, an unauthenticated POST returns 401 |
 
-操作步骤与首次发布需要的两件事（PyPI 注册 + 可信发布配置）见 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+Operating steps and the one-time PyPI setup are in [`docs/PUBLISHING.md`](docs/PUBLISHING.md). If egress needs a proxy, set `HTTPS_PROXY` / `HTTP_PROXY` (the standard variables `requests` reads); keep proxy credentials in the environment only — never in `config/` and never committed.
 
-出口需要代理时，设置 `HTTPS_PROXY` / `HTTP_PROXY` 即可（`requests` 默认读取环境代理）；
-代理口令只放环境变量，不要写进 `config/` 或提交到仓库。
-
-## 目录结构
+## Directory layout
 
 ```
-config/                 sources.yaml（降级链 / 限流 / 跳转白名单）、compliance.yaml（Tier）
+config/                 sources.yaml (chains / rate limits / redirect allowlist), compliance.yaml (tiers)
 src/tickhub_us/
-  core/                 配置、错误、HTTP、日志、标的代码、DataEnvelope
-  cache/                分级 TTL + Redis / 进程内 LRU 兜底
-  compliance/           Tier 注册表与拦截器
-  providers/            20 个数据源适配器 + 本地指标计算
-  market/               行情、K 线、指标、资金流、卖空、波动率、台股
-  fundamental/          财报三表、关键指标、分析师预期、机构持仓
-  options/              期权链、希腊字母、0DTE、异动
-  filings/              SEC submissions / XBRL / 每日索引 / 全文检索 / Form 4 / 13F
-  mcp/                  MCP Server（stdio / HTTP）
-  cli/                  th-us 命令树
+  core/                 settings, errors, HTTP, logging, symbols, DataEnvelope
+  cache/                tiered TTL + Redis / in-process LRU fallback
+  compliance/           tier registry and interceptor
+  providers/            20 source adapters + local indicator computation
+  market/               quotes, K-lines, indicators, fund flow, short, volatility, Taiwan
+  fundamental/          statements, key metrics, analyst estimates, institutional holders
+  options/              options chain, Greeks, 0DTE, unusual flow
+  filings/              SEC submissions / XBRL / daily index / full-text / Form 4 / 13F
+  mcp/                  MCP server (stdio / HTTP)
+  cli/                  th-us command tree
 tests/
-  contract/             接口契约 + 联网冒烟 + 缺陷回归
-  compliance/           合规拦截测试
-docs/                   规格、决策记录、任务产出、PUBLISHING.md（发布手册）
-SKILL.md                Agent 侧的瘦身 SOP
-Dockerfile              镜像（非 root，默认 stdio）
-.github/workflows/      ci.yml（门禁）+ publish.yml（PyPI / Release）+ docker.yml（GHCR）
+  contract/             interface contracts + live smoke + defect regressions
+  compliance/           compliance interception tests
+docs/                   specs, decision records, task outputs, PUBLISHING.md
+SKILL.md                compact agent-facing SOP
+Dockerfile              image (non-root, stdio by default)
+.github/workflows/      ci.yml (gate) + publish.yml (PyPI / Release) + docker.yml (GHCR)
 ```
 
 ## FAQ
 
-**和 global-stock-data 什么关系？** 同一份数据能力的工程化版本。参考实现是单文件 Skill（Markdown + 内嵌 Python，给个人在 AI 助手里用）；TickHub-US 是独立可部署服务，多了进程隔离、合规拦截、缓存降级和标准信封，也多了 Tier B/C/D 的硬拦截。
+**Does it need an API key?** No, by default. Only Polygon is an optional source (`POLYGON_API_KEY`); SEC EDGAR needs a real `SEC_CONTACT`, which is an identity declaration, not a secret.
 
-**需要 API Key 吗？** 默认不需要。只有 Polygon 是可选源（`POLYGON_API_KEY`）；SEC EDGAR 需要声明真实的 `SEC_CONTACT`，这不是密钥而是身份声明。
+**Will it silently switch sources when data is missing?** It will walk the fallback chain, but it will **not** degrade around a compliance denial — if every source on the chain is denied, it raises `ComplianceError` and lists each denial in `attempts` (DEC-005).
 
-**会不会因为拿不到数据就悄悄换源？** 会沿降级链换源，但**不会**因为合规拒绝而降级——链上源全部被拒时抛 `ComplianceError`，并在 `attempts` 里列明每个源被拒的原因（DEC-005）。
+**Are HK options available?** No. The options layer is US only; HK options would require HKEX's paid proprietary feed.
 
-**港股期权有吗？** 没有，期权层仅美股（港股期权需港交所付费专有接口）。
+**Can it look up stocks outside the US and HK?** K-lines and Yahoo fundamentals, yes: Japan `.T`, Taiwan `.TW`, Korea `.KS`, India `.NS`, London `.L`, Germany `.DE` and more. Note that Yahoo is a tier-D source. Taiwan also has the official TWSE / TPEx APIs (tier S, latest trading day only).
 
-**能查美港以外的股票吗？** 能查 K 线与 Yahoo 的基本面：日本 `.T`、台湾 `.TW`、韩国 `.KS`、印度 `.NS`、伦敦 `.L`、德国 `.DE` 等。注意 Yahoo 是 D 级来源；台股另有证交所 / 柜买中心的官方接口（S 级，只有最新交易日）。
+**How fresh are global rates and FX?** ECB and NY Fed update every business day; Fed H.10 is published each Monday for the prior week; BIS lags by a few days to about three weeks depending on the country. Every value carries a `date` — check the central bank itself when you need today's exact number.
 
-**全球利率数据多新？** ECB 与 NY Fed 每个工作日更新；Fed H.10 每周一发布上一周；BIS 各国有几天到两三周的滞后。所有返回值都带 `date`，需要当天准确值请查对应央行。
+**How often does short interest update?** FINRA publishes it twice a month, for settlement dates on the 15th and at month-end (moved earlier for holidays), about 8 business days after settlement. The daily dataset is a different one — daily short volume, which counts that day's short-sale trades, not open short positions.
 
-**做空余额多久更新一次？** FINRA 每月两期，结算日为每月 15 日和月末（遇假日提前），文件在结算日后约 8 个工作日发布。每日都有的是另一套数据——每日空头成交量，统计当天做空成交，不是未平仓空头。
+**Can a server in mainland China reach Yahoo / SEC?** They are overseas services and may be flaky on a direct connection. Use a proxy, or lean on the Eastmoney / Sina / Tencent sources. The CI live job runs on GitHub-hosted runners, which is why the Eastmoney cases are skipped there.
 
-**国内服务器能访问 Yahoo / SEC 吗？** 境外服务，直连可能不稳，建议走代理或优先用东财 / 新浪 / 腾讯。CI 的联网作业跑在 GitHub 托管 runner 上，所以默认跳过东财接口。
+**Can I use it without an MCP client?** Yes. The `th-us` CLI covers every endpoint, and `--output json` feeds any script directly.
 
-**不用 MCP 客户端能用吗？** 能。`th-us` CLI 覆盖全部端点，`--output json` 后可直接喂给任何脚本。
+**Can I install it from PyPI? Is there a Docker image?** The code side is ready: `publish.yml` produces sdist / wheel / GitHub Release assets and `docker.yml` produces `ghcr.io/quotafuse-ai/tickhub-us`. The first upload needs the repository owner to finish the one-time PyPI setup (a couple of minutes), after which the workflow is a single manual dispatch. Until then, install from source — see [Quick start](#quick-start) and [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
 
-**现在能从 PyPI 装吗？有没有 Docker 镜像？** 代码侧已就绪：`publish.yml` 会产出 sdist / wheel / GitHub Release 附件，`docker.yml` 会产出 `ghcr.io/quotafuse-ai/tickhub-us`。首次上传需要仓库主人在 PyPI 注册项目并配置可信发布（一次性，约两分钟），之后在工作流里点一下即可发布。在此之前请用源码安装，见 [快速开始](#快速开始) 与 [`docs/PUBLISHING.md`](docs/PUBLISHING.md)。
+## Version
 
-## 版本
+**v1.0.0** (2026-10-26) — first stable release, feature-complete against the spec (DEC-011) and re-verified end to end against live sources:
 
-**v1.0.0**（2026-10-26）— 首个正式版本，功能与参考实现的端点对齐（DEC-011），并完成全端点联网复验：
-
-- 修复 BIS 政策利率恒 404（SDMX key 重复拼接 `D.` 维度）；
-- 修复 Yahoo quoteSummary 全线 401（非浏览器 UA 被回 429，取不到 crumb 导致；同时改为失败后冷却重试而非永久放弃）；
-- 新增 13 个联网冒烟用例与 `workflow_dispatch` 联网作业，两个缺陷各有离线回归用例；
-- 打通四条分发包：PyPI wheel / sdist（`publish.yml`，PEP 639 元数据）、GitHub Release 附件、GHCR 容器镜像（`docker.yml`，含真机冒烟）、源码安装；wheel 自带 `config/`，装完在任意目录都能跑。
+- Fixed BIS policy rates always returning 404 (the SDMX key duplicated the `D.` dimension);
+- Fixed Yahoo quoteSummary returning 401 across the board (a non-browser UA got 429, so no crumb could be obtained; now it cools down and retries instead of giving up permanently);
+- Added 13 live smoke cases and a `workflow_dispatch` live job, with an offline regression test for each of the two defects;
+- Shipped four distribution channels: PyPI wheel / sdist (`publish.yml`, PEP 639 metadata), GitHub Release assets, GHCR container image (`docker.yml`, with a real smoke), and source install; the wheel bundles `config/`, so it runs from any directory.
 
 ---
 
-## 免责声明
+## Disclaimer
 
-本项目仅提供数据获取工具，不构成任何投资建议。股市有风险，投资需谨慎。数据授权以各数据源条款为准，见 [`config/compliance.yaml`](config/compliance.yaml)。
+This project provides data-access tooling only. It is not investment advice. Markets carry risk. Data licensing follows each source's terms — see [`config/compliance.yaml`](config/compliance.yaml).
 
 ## License
 
-[Apache License 2.0](LICENSE)。**Author:** QuotaFuse · <https://github.com/QuotaFuse-ai>
+[Apache License 2.0](LICENSE). **Author:** QuotaFuse · <https://github.com/QuotaFuse-ai>
 
-功能规格见 [`docs/specs/tickhub-us.md`](docs/specs/tickhub-us.md)，架构决策见 [`docs/decisions/`](docs/decisions/)，Agent 调用 SOP 见 [`SKILL.md`](SKILL.md)。
+Feature spec: [`docs/specs/tickhub-us.md`](docs/specs/tickhub-us.md) · architecture decisions: [`docs/decisions/`](docs/decisions/) · agent SOP: [`SKILL.md`](SKILL.md)

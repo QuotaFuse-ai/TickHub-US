@@ -258,4 +258,5 @@ stdout 只放数据或 JSON，日志与警告走 stderr；结构化错误也在 
 - 仓库与 README：<https://github.com/QuotaFuse-ai/TickHub-US>
 - 数据源条款：`config/compliance.yaml`
 - 降级链与 TTL：`config/sources.yaml`
-- 前身项目：[simonlin1212/global-stock-data](https://github.com/simonlin1212/global-stock-data)
+- 功能规格与决策：`docs/specs/tickhub-us.md`、`docs/decisions/`
+- 发布与镜像：`docs/PUBLISHING.md`
