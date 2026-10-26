@@ -187,7 +187,7 @@ Look at `compliance_tier` and `warnings`: this row came from Sina, a tier-C sour
 
 ### One-click install
 
-Four distribution channels, one code base — PyPI wheel / sdist, GitHub Release assets, GHCR container image, and source install. PyPI and the Release assets are live as of v1.0.0; the container image has not been pushed yet. See [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
+Four distribution channels, one code base — PyPI wheel / sdist, GitHub Release assets, GHCR container image, and source install. All three published channels are live as of v1.0.0. See [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
 
 ```bash
 # PyPI
@@ -619,7 +619,7 @@ Dockerfile              image (non-root, stdio by default)
 
 **Can I use it without an MCP client?** Yes. The `th-us` CLI covers every endpoint, and `--output json` feeds any script directly.
 
-**Can I install it from PyPI? Is there a Docker image?** PyPI, yes — `pip install tickhub-us` installs 1.0.0 ([PyPI](https://pypi.org/project/tickhub-us/)), and the same wheel / sdist ship as [v1.0.0 release assets](https://github.com/QuotaFuse-ai/TickHub-US/releases/tag/v1.0.0). The container image is not published yet: `docker.yml` builds it and pushes to `ghcr.io/quotafuse-ai/tickhub-us`, and it has not been dispatched. For now use a source or PyPI install; steps are in [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
+**Can I install it from PyPI? Is there a Docker image?** Yes to both. `pip install tickhub-us` installs 1.0.0 ([PyPI](https://pypi.org/project/tickhub-us/)), the same wheel / sdist ship as [v1.0.0 release assets](https://github.com/QuotaFuse-ai/TickHub-US/releases/tag/v1.0.0), and the container is public at `ghcr.io/quotafuse-ai/tickhub-us` (tags `1.0.0` and `latest`, `docker pull` needs no login). Publishing is a single manual dispatch of `publish.yml` / `docker.yml`; steps are in [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
 
 ## Version
 
@@ -628,7 +628,7 @@ Dockerfile              image (non-root, stdio by default)
 - Fixed BIS policy rates always returning 404 (the SDMX key duplicated the `D.` dimension);
 - Fixed Yahoo quoteSummary returning 401 across the board (a non-browser UA got 429, so no crumb could be obtained; now it cools down and retries instead of giving up permanently);
 - Added 13 live smoke cases and a `workflow_dispatch` live job, with an offline regression test for each of the two defects;
-- Shipped four distribution channels: PyPI wheel / sdist (`publish.yml`, PEP 639 metadata), GitHub Release assets, GHCR container image (`docker.yml`, with a real smoke), and source install; the wheel bundles `config/`, so it runs from any directory. Verified by installing 1.0.0 from PyPI into a clean venv and running a live quote from outside the repository.
+- Shipped four distribution channels: PyPI wheel / sdist (`publish.yml`, PEP 639 metadata), GitHub Release assets, GHCR container image (`docker.yml`, with a real smoke), and source install; the wheel bundles `config/`, so it runs from any directory. Verified by installing 1.0.0 from PyPI into a clean venv and running a live quote from outside the repository, and by an anonymous `docker pull` of `ghcr.io/quotafuse-ai/tickhub-us:1.0.0`.
 
 ---
 
