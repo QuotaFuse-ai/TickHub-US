@@ -4,5 +4,5 @@
 内置合规分级强制拦截、Redis 分级缓存与标准 DataEnvelope 输出。
 """
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 __all__ = ["__version__"]

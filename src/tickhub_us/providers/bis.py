@@ -70,7 +70,7 @@ class BisProvider(BaseProvider):
             # 部分经济体周末/假日记空值，多取几天再截
             params["lastNObservations"] = size + 10
 
-        key = "D." + "+".join(cleaned)
+        key = "+".join(cleaned)
         text = get_http_client().get(_BASE.format(key=key), params=params).text
         rows = list(csv.DictReader(io.StringIO(text)))
         if not rows:

@@ -22,8 +22,9 @@ description: 美股 / 港股数据引擎。需要查询行情、K 线、财报�
 ## 安装与启动
 
 ```bash
-pip install tickhub-us          # PyPI 包名
-pip install -e ".[dev]"         # 仓库内开发
+git clone https://github.com/QuotaFuse-ai/TickHub-US.git    # v1.0.0 尚未发布到 PyPI
+pip install -e TickHub-US
+pip install -e "TickHub-US[dev]"   # 仓库内开发
 
 th-us --version                 # 自检
 th-us mcp tools                 # 列出全部工具

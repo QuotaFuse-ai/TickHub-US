@@ -10,6 +10,7 @@ compliance 拦截；这里只提供个人研究用途的适配器。
 from __future__ import annotations
 
 import threading
+import time
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -34,30 +35,50 @@ _RANGES = {"1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max
 _PERIOD_DAYS = {"1d": 1, "5d": 5, "1mo": 31, "3mo": 92, "6mo": 183, "1y": 366,
                 "2y": 732, "5y": 1830, "10y": 3660}
 
+# Yahoo 对非浏览器 UA 直接回 429（实测 `tickhub-us/*` → 429，浏览器 UA → 200），
+# 这是取不到 crumb 的唯一根因。Tier D 且仅供个人研究，按参考实现用浏览器 UA。
+_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+_HEADERS = {"User-Agent": _BROWSER_UA}
+
 _CRUMB_LOCK = threading.Lock()
 _CRUMB_VALUE: str | None = None
-_CRUMB_TRIED = False
+_CRUMB_AT = 0.0
+_CRUMB_RETRY = 30.0
 
 
-def _crumb() -> str | None:
-    """quoteSummary 在部分网络环境下需要 crumb；失败时返回 None 由调用方决定。"""
-    global _CRUMB_VALUE, _CRUMB_TRIED
+def _crumb(force: bool = False) -> str | None:
+    """quoteSummary 在部分网络环境下需要 crumb；失败时返回 None 由调用方决定。
+
+    取不到 crumb 时只记冷却时间、不永久放弃：长驻进程遇到一次 429 后，
+    下一次调用（或 ``force``）会重新尝试，而不是整个进程生命周期都拿不到。
+    """
+    global _CRUMB_VALUE, _CRUMB_AT
     with _CRUMB_LOCK:
-        if _CRUMB_TRIED:
-            return _CRUMB_VALUE
-        _CRUMB_TRIED = True
+        now = time.monotonic()
+        if not force:
+            if _CRUMB_VALUE:
+                return _CRUMB_VALUE
+            if _CRUMB_AT and now - _CRUMB_AT < _CRUMB_RETRY:
+                return None
+        _CRUMB_AT = now
+        _CRUMB_VALUE = None
         client = get_http_client()
         try:
             # fc.yahoo.com 只用来下发 cookie（通常返回 404，属正常）
             client.session.get(
                 "https://fc.yahoo.com",
                 timeout=min(client.timeout, 8),
-                headers={"User-Agent": client.user_agent},
+                headers=_HEADERS,
             )
         except Exception:  # noqa: BLE001
             pass
         try:
-            response = client.get(_CRUMB, params={"lang": "en-US", "region": "US"})
+            response = client.get(
+                _CRUMB, params={"lang": "en-US", "region": "US"}, headers=_HEADERS
+            )
             text = (response.text or "").strip()
             if text and "<" not in text and len(text) < 64:
                 _CRUMB_VALUE = text
@@ -150,7 +171,7 @@ class YahooProvider(BaseProvider):
         else:
             params["range"] = range_
         url = _CHART.format(symbol=to_yahoo(symbol))
-        data = get_http_client().get(url, params=params, as_json=True)
+        data = get_http_client().get(url, params=params, headers=_HEADERS, as_json=True)
         chart = (data or {}).get("chart") or {}
         if chart.get("error"):
             raise DataNotAvailable(
@@ -323,13 +344,25 @@ class YahooProvider(BaseProvider):
         params = {"modules": ",".join(modules), "corsDomain": "finance.yahoo.com"}
         url = _SUMMARY.format(symbol=to_yahoo(sym))
         client = get_http_client()
+        crumb = _crumb()
         try:
-            data = client.get(url, params=params, as_json=True)
+            data = client.get(
+                url,
+                params={**params, "crumb": crumb} if crumb else params,
+                headers=_HEADERS,
+                as_json=True,
+            )
         except ProviderError:
-            crumb = _crumb()
-            if not crumb:
+            # 缓存的 crumb 可能已失效；强制换一个再试一次，避免整轮调用直接失败。
+            refreshed = _crumb(force=True)
+            if not refreshed or refreshed == crumb:
                 raise
-            data = client.get(url, params={**params, "crumb": crumb}, as_json=True)
+            data = client.get(
+                url,
+                params={**params, "crumb": refreshed},
+                headers=_HEADERS,
+                as_json=True,
+            )
         results = ((data or {}).get("quoteSummary") or {}).get("result") or []
         if not results:
             raise DataNotAvailable(f"Yahoo 无 {sym} 的 quoteSummary 数据")
@@ -573,6 +606,7 @@ class YahooProvider(BaseProvider):
                 "newsCount": max(1, min(int(count), 50)),
                 "listsCount": 0,
             },
+            headers=_HEADERS,
             as_json=True,
         )
         items = (data or {}).get("news") or []
@@ -618,12 +652,14 @@ class YahooProvider(BaseProvider):
             params["date"] = _expiry_epoch(expiration)
 
         try:
-            data = client.get(url, params=params or None, as_json=True)
+            data = client.get(url, params=params or None, headers=_HEADERS, as_json=True)
         except ProviderError:
             crumb = _crumb()
             if not crumb:
                 raise
-            data = client.get(url, params={**(params or {}), "crumb": crumb}, as_json=True)
+            data = client.get(
+                url, params={**(params or {}), "crumb": crumb}, headers=_HEADERS, as_json=True
+            )
 
         results = ((data or {}).get("optionChain") or {}).get("result") or []
         if not results:
@@ -654,6 +690,7 @@ class YahooProvider(BaseProvider):
         data = get_http_client().get(
             _SEARCH,
             params={"q": query, "quotesCount": limit, "newsCount": 0, "listsCount": 0},
+            headers=_HEADERS,
             as_json=True,
         )
         quotes = (data or {}).get("quotes") or []
