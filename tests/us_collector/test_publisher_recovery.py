@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 from us_collector.publisher import STREAM, Publisher
 
@@ -80,7 +81,13 @@ def test_flush_skips_rows_already_in_published_ledger(outbox, fake_redis, make_e
     assert fake_redis.xlen() == 0
 
 
-def test_flush_while_still_down_keeps_row_and_backs_off(outbox, fake_redis, make_event):
+def test_flush_while_still_down_keeps_row_and_backs_off(
+    outbox, fake_redis, make_event, monkeypatch
+):
+    # 冻结时钟：1s 退避若按墙钟判断，跨秒边界时会偶发地重新到期。
+    frozen = datetime(2026, 10, 23, 20, 0, 0, 900_000, tzinfo=timezone.utc)
+    monkeypatch.setattr("us_collector.outbox.utc_now", lambda: frozen)
+
     publisher = _publisher(outbox, fake_redis)
     fake_redis.fail = True
     publisher.publish(make_event(biz_key="2026-10-23|still-down"))
@@ -89,6 +96,5 @@ def test_flush_while_still_down_keeps_row_and_backs_off(outbox, fake_redis, make
 
     assert (flushed.sent, flushed.failed, flushed.pending) == (0, 1, 1)
     assert fake_redis.xlen() == 0
-    row = outbox.due()
-    assert row == []  # 已退避，不在本轮到期集合里
+    assert outbox.due() == []  # 已退避，不在本轮到期集合里
     assert outbox.oldest_pending()["attempts"] == 1
