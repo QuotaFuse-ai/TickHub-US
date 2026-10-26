@@ -163,6 +163,9 @@ pytest tests -m "not live"
 SEC_CONTACT="you@example.com" TICKHUB_US_LIVE=1 pytest tests/contract/test_live_smoke.py
 ```
 
+出口需要代理时，设置 `HTTPS_PROXY` / `HTTP_PROXY` 即可（`requests` 默认读取环境代理）；
+代理口令只放环境变量，不要写进 `config/` 或提交到仓库。
+
 功能规格见 [`docs/specs/tickhub-us.md`](docs/specs/tickhub-us.md)，架构决策见 [`docs/decisions/`](docs/decisions/)。
 
 ## 许可
