@@ -153,7 +153,7 @@ Dockerfile              stdio 专用镜像（非 root）
 | `mcp/` | 已完成 | 30 个工具，stdio 与 Streamable HTTP 双通道实测通过，入口强制 `commercial_use` |
 | `cli/` | 已完成 | `quote` / `finance` / `options` / `macro` / `cache` / `compliance` / `source` / `mcp` / `config` / `start-all` |
 | `SKILL.md` | 已完成 | Agent 侧瘦身 SOP（调用约定、工具速查、合规分级、缓存 TTL） |
-| `tests/` | 已完成 | 173 个用例：170 个离线（契约 + 合规 + 降级链矩阵 + 密钥脱敏 + 输入/网络加固），3 个真实联网冒烟（需 `TICKHUB_US_LIVE=1`） |
+| `tests/` | 已完成 | 176 个用例：173 个离线（契约 + 合规 + 降级链矩阵 + 密钥脱敏 + 输入/网络加固），3 个真实联网冒烟（需 `TICKHUB_US_LIVE=1`） |
 
 ```bash
 # 离线全量（无需外网、无需 Redis）

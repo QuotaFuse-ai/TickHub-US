@@ -1,4 +1,4 @@
-"""SEC-07：出站请求只跟同源跳转，并给响应体设硬上限。"""
+"""SEC-07：出站请求只跟同源或白名单登记的官方跳转主机，并给响应体设硬上限。"""
 
 from __future__ import annotations
 
@@ -96,6 +96,40 @@ def test_same_host_redirect_is_followed() -> None:
     calls = client.session.calls
     assert [call["url"] for call in calls] == ["https://api.example.com/v1", "https://api.example.com/v2"]
     assert calls[1]["params"] is None
+
+
+def test_registered_sibling_redirect_is_followed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(http_module, "_redirect_hosts", lambda: {"cdn-api.example.com"})
+
+    def handler(url: str, kwargs):
+        if url == "https://cdn.example.com/v1":
+            return _StubResponse(
+                307, b"", headers={"Location": "https://cdn-api.example.com/v1"}, url=url
+            )
+        return _StubResponse(200, b'{"ok": true}', url=url)
+
+    client = _client(handler)
+    assert client.get("https://cdn.example.com/v1", as_json=True) == {"ok": True}
+    assert [call["url"] for call in client.session.calls] == [
+        "https://cdn.example.com/v1",
+        "https://cdn-api.example.com/v1",
+    ]
+
+
+def test_registered_host_cannot_downgrade_to_http(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(http_module, "_redirect_hosts", lambda: {"cdn-api.example.com"})
+    client = _client(
+        lambda url, kwargs: _StubResponse(
+            307, b"", headers={"Location": "http://cdn-api.example.com/v1"}, url=url
+        )
+    )
+    with pytest.raises(ProviderError, match="其它站点"):
+        client.get("https://cdn.example.com/v1")
+
+
+def test_official_cdn_hosts_are_registered() -> None:
+    hosts = http_module._redirect_hosts()
+    assert {"cdn-api.cboe.com", "push2delay.eastmoney.com"} <= hosts
 
 
 def test_oversized_body_is_rejected() -> None:

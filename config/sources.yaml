@@ -27,6 +27,10 @@ request_defaults:
   retries: 2
   backoff_seconds: 0.6
   user_agent: "tickhub-us/{version} (+https://github.com/QuotaFuse-ai/TickHub-US)"
+  # 上游官方 CDN / 边缘节点跳转白名单：同主机跳转无需登记，未登记的跨主机跳转一律拒绝。
+  redirect_hosts:
+    - cdn-api.cboe.com      # cdn.cboe.com 307 → cdn-api.cboe.com
+    - push2delay.eastmoney.com  # push2.eastmoney.com 经非直连出口时 302 → push2delay
 
 providers:
   local:

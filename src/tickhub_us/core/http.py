@@ -42,6 +42,30 @@ def _same_origin(source: str, target: str) -> bool:
     return True
 
 
+def _redirect_hosts() -> set[str]:
+    raw = (sources_config().get("request_defaults") or {}).get("redirect_hosts") or []
+    return {str(host).strip().lower() for host in raw if str(host).strip()}
+
+
+def _redirect_allowed(source: str, target: str) -> bool:
+    """同主机跳转放行；跨主机只放行 sources.yaml 登记的官方跳转主机。
+
+    上游 CDN 迁移（如 cdn.cboe.com → cdn-api.cboe.com）会换主机名，但把任意
+    跨主机跳转都放行会让带密钥的 query 被送到第三方，因此只认登记过的主机。
+    """
+    if _same_origin(source, target):
+        return True
+    left, right = urlsplit(source), urlsplit(target)
+    host = (right.hostname or "").lower()
+    if right.scheme not in ("http", "https") or not host:
+        return False
+    if left.scheme == "https" and right.scheme != "https":
+        return False
+    if right.scheme == "http" and _port(right) != 80:
+        return False
+    return host in _redirect_hosts()
+
+
 class RateLimiter:
     def __init__(self, per_sec: float) -> None:
         self.interval = 1.0 / float(per_sec) if per_sec and per_sec > 0 else 0.0
@@ -224,13 +248,13 @@ class HttpClient:
                     details={"url": redact_url(final_url)},
                 )
             target = urljoin(final_url, location)
-            if not _same_origin(final_url, target):
+            if not _redirect_allowed(final_url, target):
                 raise ProviderError(
                     f"{host} 要求跳转到其它站点（{(urlsplit(target).hostname or '?').lower()}），已按安全策略拒绝",
-                    hint="上游端点可能已变更或遭劫持；请核对 sources.yaml 中登记的官方域名。",
+                    hint="上游端点可能已变更或遭劫持；如为该源的官方跳转主机，请登记到 sources.yaml 的 request_defaults.redirect_hosts。",
                     details={"url": redact_url(final_url), "target": redact_url(target)},
                 )
-            _LOG.debug("同源跳转 %d：%s", status, redact_url(target))
+            _LOG.debug("跳转 %d：%s", status, redact_url(target))
             current, current_params = target, None
         raise ProviderError(
             f"{host} 跳转次数超过 {MAX_REDIRECTS} 次，已中止",
