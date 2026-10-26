@@ -607,7 +607,7 @@ src/tickhub_us/
 tests/
   contract/             interface contracts + live smoke + defect regressions
   compliance/           compliance interception tests
-docs/CHANGELOG.md       update log (the only document in the repository)
+CHANGELOG.md            update log (the only document in the repository)
 SKILL.md                compact agent-facing SOP
 Dockerfile              image (non-root, stdio by default)
 .github/workflows/      ci.yml (gate) + publish.yml (PyPI / Release) + docker.yml (GHCR)
@@ -652,4 +652,4 @@ This project provides data-access tooling only. It is not investment advice. Mar
 
 [Apache License 2.0](LICENSE). **Author:** QuotaFuse · <https://github.com/QuotaFuse-ai>
 
-Update log: [`docs/CHANGELOG.md`](docs/CHANGELOG.md) · agent SOP: [`SKILL.md`](SKILL.md)
+Update log: [`CHANGELOG.md`](CHANGELOG.md) · agent SOP: [`SKILL.md`](SKILL.md)

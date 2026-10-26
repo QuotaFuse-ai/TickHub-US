@@ -10,6 +10,5 @@ logs
 .env
 .pytest_cache
 tests
-docs
 .reference-global-stock-data
 .scratch

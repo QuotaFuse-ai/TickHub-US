@@ -605,7 +605,7 @@ src/tickhub_us/
 tests/
   contract/             接口契约 + 联网冒烟 + 缺陷回归
   compliance/           合规拦截测试
-docs/CHANGELOG.md      更新记录（仓库唯一文档）
+CHANGELOG.md           更新记录（仓库唯一文档）
 SKILL.md                Agent 侧的瘦身 SOP
 Dockerfile              镜像（非 root，默认 stdio）
 .github/workflows/      ci.yml（门禁）+ publish.yml（PyPI / Release）+ docker.yml（GHCR）
@@ -650,4 +650,4 @@ Dockerfile              镜像（非 root，默认 stdio）
 
 [Apache License 2.0](LICENSE)。**Author:** QuotaFuse · <https://github.com/QuotaFuse-ai>
 
-更新记录见 [`docs/CHANGELOG.md`](docs/CHANGELOG.md)，Agent 调用 SOP 见 [`SKILL.md`](SKILL.md)。
+更新记录见 [`CHANGELOG.md`](CHANGELOG.md)，Agent 调用 SOP 见 [`SKILL.md`](SKILL.md)。
