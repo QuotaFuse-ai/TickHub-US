@@ -34,6 +34,7 @@
   <a href="#endpoints">Endpoints</a> ·
   <a href="#data-sources">Data Sources</a> ·
   <a href="#configuration">Configuration</a> ·
+  <a href="#financecoffer-events">FinanceCoffer</a> ·
   <a href="#faq">FAQ</a>
 </p>
 
@@ -546,6 +547,46 @@ MCP_HTTP_TOKEN="$(openssl rand -hex 32)" \
 MCP_HTTP_ALLOWED_HOSTS=tickhub.internal:8001 \
 th-us mcp http
 ```
+
+<a id="financecoffer-events"></a>
+
+## FinanceCoffer event stream
+
+On top of the MCP / CLI surface, TickHub-US can publish what it already collects as **standard events** for the downstream warehouse [FinanceCoffer](https://github.com/QuotaFuse-ai/FinanceCoffer). The event contract (Event Contract v1) lives in the FinanceCoffer repository and is shared by both ends.
+
+The publisher is a sidecar (`us_collector`), **not part of the MCP server process** — if you never start it, nothing is published.
+
+```bash
+# Dry run first: assemble events, print a summary, write nothing
+python -m us_collector.scheduler --config us_collector/config.yaml --once --dry-run
+
+# One real round
+python -m us_collector.scheduler --config us_collector/config.yaml --once
+
+# Scheduled sidecar: 17:30 America/New_York, weekdays
+python -m us_collector.scheduler --config us_collector/config.yaml
+```
+
+| Item | Value |
+| --- | --- |
+| Target stream | `fc:stockdata:events` |
+| Consumer group (downstream) | `fc-etl` |
+| Dead-letter stream | `fc:stockdata:dlq` |
+| `schema_version` | `"1.0"` |
+| Retention | `XADD MAXLEN ~ 100000` (Redis must have AOF enabled) |
+| Event types | `quote`, `kline`, `financial`, `announcement`, `risk`, `heartbeat` |
+| Provider | `tickhub-us` |
+| Compliance | `compliance_tier` per source; `commercial_use=false`, enforced at startup |
+
+Design notes:
+
+- **Sidecar, never fatal**: `Publisher.publish` does not raise into the collector. When Redis is unavailable the event goes to a SQLite outbox (`var/us_collector/outbox.sqlite3`) and is flushed later with bounded retries; a run that cannot publish still completes.
+- **Deterministic `event_id`**: an `evt_` prefix plus a hash of the business key, so retries and duplicates collapse into one row downstream.
+- **Exactly one instance**: a PID lock (`var/us_collector/scheduler.lock`) makes a second scheduler exit with code 2 instead of double-publishing.
+- **Heartbeat on non-trading days**: US market holidays publish `data_type=heartbeat` only — no tool is called and no data event is emitted.
+- **Amounts stay strings**: decimal amounts are validated as strings and never round-tripped through a float.
+
+Field definitions, failure handling and versioning: [`docs/specs/event-contract.md`](https://github.com/QuotaFuse-ai/FinanceCoffer/blob/main/docs/specs/event-contract.md).
 
 ## Testing and CI
 

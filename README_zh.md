@@ -34,6 +34,7 @@
   <a href="#端点">端点</a> ·
   <a href="#数据源">数据源</a> ·
   <a href="#配置">配置</a> ·
+  <a href="#financecoffer-events">FinanceCoffer</a> ·
   <a href="#faq">FAQ</a>
 </p>
 
@@ -542,6 +543,46 @@ MCP_HTTP_TOKEN="$(openssl rand -hex 32)" \
 MCP_HTTP_ALLOWED_HOSTS=tickhub.internal:8001 \
 th-us mcp http
 ```
+
+<a id="financecoffer-events"></a>
+
+## 与 FinanceCoffer 的数据交互
+
+除了 MCP / CLI 接口，TickHub-US 还可以把已经采集到的数据以**标准事件**发布给下游金融数仓 [FinanceCoffer](https://github.com/QuotaFuse-ai/FinanceCoffer)。事件契约（Event Contract v1）由 FinanceCoffer 仓库维护，采集端与消费端共用同一份定义。
+
+发布器是一个独立 sidecar（`us_collector`），**不在 MCP 服务进程里**——不启动它，就不会有任何事件发出。
+
+```bash
+# 先演练：只组装事件、打印摘要，不写 Redis
+python -m us_collector.scheduler --config us_collector/config.yaml --once --dry-run
+
+# 真实跑一轮
+python -m us_collector.scheduler --config us_collector/config.yaml --once
+
+# 常驻调度：美东 17:30，工作日
+python -m us_collector.scheduler --config us_collector/config.yaml
+```
+
+| 项 | 值 |
+| --- | --- |
+| 目标 Stream | `fc:stockdata:events` |
+| 下游消费组 | `fc-etl` |
+| 死信 Stream | `fc:stockdata:dlq` |
+| `schema_version` | `"1.0"` |
+| 保留策略 | `XADD MAXLEN ~ 100000`（Redis 需开启 AOF） |
+| 事件类型 | `quote`、`kline`、`financial`、`announcement`、`risk`、`heartbeat` |
+| Provider | `tickhub-us` |
+| 合规 | 按数据源带 `compliance_tier`；`commercial_use=false`，启动时强制校验 |
+
+设计要点：
+
+- **旁路 sidecar，绝不拖垮采集**：`Publisher.publish` 不会向采集流程抛异常。Redis 不可用时事件写入 SQLite outbox（`var/us_collector/outbox.sqlite3`），稍后按有界重试补投；发布失败不影响本轮采集完成。
+- **确定性 `event_id`**：`evt_` 前缀 + 业务键哈希，重试与重复投递在下游收敛为同一行。
+- **单实例**：PID 锁（`var/us_collector/scheduler.lock`）让第二个调度进程以退出码 2 拒绝启动，避免重复发布。
+- **非交易日只发心跳**：美股节假日只发 `data_type=heartbeat`，不调用任何工具、不产生数据事件。
+- **金额保持字符串**：小数金额按字符串校验，绝不经 float 往返。
+
+字段定义、失败处理与版本演进见 FinanceCoffer 仓库的 [`docs/specs/event-contract.md`](https://github.com/QuotaFuse-ai/FinanceCoffer/blob/main/docs/specs/event-contract.md)。
 
 ## 测试与 CI
 
