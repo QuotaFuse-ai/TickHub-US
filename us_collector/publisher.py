@@ -7,6 +7,8 @@
 - ``event_time`` 是业务发生时间（RFC3339 UTC），不是发送时间。
 - ``source_info.commercial_use`` 恒为 ``false``（DEC-0006），没有运行时开关；
   唯一写入点在本模块的 :data:`COMMERCIAL_USE`，collector 不允许覆盖。
+- ``source_info.hub`` 恒为 :data:`HUB`（契约 v0.5 可选字段），与 ``provider``
+  一起由本模块写入，collector 传入的 ``source_info`` 在此被覆盖为权威值。
 - Redis 不可用不得影响采集：:meth:`Publisher.publish` 永不向调用方抛异常，
   失败事件进 SQLite outbox，恢复后 :meth:`Publisher.flush_outbox` 补投。
 """
@@ -31,6 +33,14 @@ MAXLEN = 100_000
 DEFAULT_REDIS_URL = "redis://127.0.0.1:6379/1"
 PUBLISH_TIMEOUT_SECONDS = 2.0
 PROVIDER = "tickhub-us"
+
+# The hub this process publishes for — same role as ``CN_HUB`` on the TickHub-CN
+# side. ``provider`` names the vendor behind a row (``finnhub``, ``sec_edgar``),
+# which the warehouse cannot turn back into a source label on its own; the ODS
+# ``source`` column is really decided by which hub published the event, so state
+# it outright instead of relying on a vendor -> hub mapping table that silently
+# degrades to ``manual`` the moment an unknown vendor appears.
+HUB = "tickhub-us"
 
 # DEC-0006：合规等级 D 数据可采集但不可商用。该常量是事件里
 # `source_info.commercial_use` 的唯一来源，不做成配置项。
@@ -179,6 +189,7 @@ def build_event(
     if tier is not None and tier not in COMPLIANCE_TIERS:
         raise EventValidationError(f"未知 compliance_tier：{tier!r}")
     info["provider"] = provider
+    info["hub"] = HUB  # 权威值，忽略调用方传入，ODS source 以此为准
     info["commercial_use"] = COMMERCIAL_USE  # 硬编码，忽略调用方传入值
 
     content = dict(content)

@@ -572,6 +572,7 @@ python -m us_collector.scheduler --config us_collector/config.yaml
 | 保留策略 | `XADD MAXLEN ~ 100000`（Redis 需开启 AOF） |
 | 事件类型 | `quote`、`kline`、`financial`、`announcement`、`risk`、`heartbeat` |
 | Provider | `tickhub-us` |
+| Hub | 每条事件都带 `source_info.hub = "tickhub-us"`（心跳同样带）；`provider` 表示上游 vendor |
 | 合规 | 按数据源带 `compliance_tier`；`commercial_use=false`，启动时强制校验 |
 
 设计要点：

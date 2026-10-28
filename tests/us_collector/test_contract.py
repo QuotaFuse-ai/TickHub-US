@@ -7,6 +7,7 @@ import pytest
 
 from us_collector.publisher import (
     COMMERCIAL_USE,
+    HUB,
     EventValidationError,
     Publisher,
     build_event,
@@ -52,6 +53,18 @@ def test_commercial_use_is_hardcoded_false():
     assert COMMERCIAL_USE is False
     event = _build()
     assert event["source_info"]["commercial_use"] is False
+
+
+def test_hub_is_hardcoded():
+    assert HUB == "tickhub-us"
+    event = _build(source_info={"provider": "tickhub-us", "hub": "someone-else"})
+    assert event["source_info"]["hub"] == "tickhub-us"
+
+
+def test_hub_survives_when_caller_omits_source_info():
+    event = _build(source_info=None)
+    assert event["source_info"]["hub"] == "tickhub-us"
+    assert event["source_info"]["provider"] == "tickhub-us"
 
 
 @pytest.mark.parametrize("key", ["close", "volume", "total_market_cap", "amount", "pe_ttm"])
@@ -102,6 +115,7 @@ def test_heartbeat_event_contract():
     assert event["symbol"] is None
     assert event["market"] == "US"
     assert event["source_info"]["provider"] == "tickhub-us"
+    assert event["source_info"]["hub"] == "tickhub-us"
     assert event["source_info"]["commercial_use"] is False
     assert event["event_time"] == "2026-10-23T21:31:00Z"
 

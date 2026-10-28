@@ -576,6 +576,7 @@ python -m us_collector.scheduler --config us_collector/config.yaml
 | Retention | `XADD MAXLEN ~ 100000` (Redis must have AOF enabled) |
 | Event types | `quote`, `kline`, `financial`, `announcement`, `risk`, `heartbeat` |
 | Provider | `tickhub-us` |
+| Hub | `source_info.hub = "tickhub-us"` on every event (heartbeats included); `provider` names the vendor instead |
 | Compliance | `compliance_tier` per source; `commercial_use=false`, enforced at startup |
 
 Design notes:

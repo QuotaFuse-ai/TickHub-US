@@ -69,6 +69,24 @@ def test_mock_collect_builds_all_event_types(settings):
     }
 
 
+def test_every_event_type_carries_hub(settings, outbox, fake_redis):
+    runner = _runner(settings, outbox, fake_redis, MockGateway())
+
+    runner.run(dry_run=False, now=TRADING)
+
+    events = _events(fake_redis)
+    assert {event["data_type"] for event in events} == {
+        "quote",
+        "kline",
+        "financial",
+        "announcement",
+        "risk",
+        "heartbeat",
+    }
+    for event in events:
+        assert event["source_info"]["hub"] == "tickhub-us", event["data_type"]
+
+
 def test_all_tool_arguments_use_strict_bool_false(settings):
     gateway = MockGateway()
     _collect(settings, gateway, now=TRADING)
@@ -84,6 +102,7 @@ def test_quote_event_inherits_envelope_metadata(settings):
 
     assert quote["symbol"] == "AAPL"
     assert quote["source_info"]["provider"] == "tickhub-us"
+    assert quote["source_info"]["hub"] == "tickhub-us"
     assert quote["source_info"]["commercial_use"] is False
     assert quote["source_info"]["compliance_tier"] == "B"
 
@@ -109,6 +128,7 @@ def test_announcement_carries_crawl_url(settings):
     assert fields["form"] == "8-K"
     assert fields["accession"] == "0000320193-26-000123"
     assert announcement["source_info"]["crawl_url"].startswith("https://www.sec.gov/")
+    assert announcement["source_info"]["hub"] == "tickhub-us"
     assert announcement["content"]["clean_content"]
     assert "raw_html" in announcement["content"]["quality_metrics"]["missing_fields"]
 
@@ -168,6 +188,7 @@ def test_partial_round_reports_failed_tools_in_heartbeat(settings, outbox, fake_
     assert heartbeat["symbol"] is None
     assert heartbeat["market"] == "US"
     assert heartbeat["source_info"]["provider"] == "tickhub-us"
+    assert heartbeat["source_info"]["hub"] == "tickhub-us"
     assert heartbeat["source_info"]["commercial_use"] is False
     assert fields["status"] == "partial"
     assert fields["items_collected"] == 12
