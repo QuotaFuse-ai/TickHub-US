@@ -627,6 +627,8 @@ CI (`.github/workflows/ci.yml`):
 - `push` / `pull_request`: Python 3.11 + 3.12 matrix, `ruff` → `compileall` → offline tests, as the merge gate;
 - `workflow_dispatch` with `live` checked: an extra networked job that reads the repository variable `SEC_CONTACT` (cases skip themselves when it is unset, so the job never goes red) and the optional `POLYGON_API_KEY` secret, and skips the Eastmoney cases that are unreachable from overseas. **Writing code needs no keys; running against live sources does.**
 
+Exact check names, copy-paste equivalents for Windows and Linux, and the current required-check status (`main` is unprotected and there are no rulesets, so CI is advisory only): [docs/CI.md](docs/CI.md).
+
 Two **manual** release workflows, neither triggered by a push:
 
 | Workflow | What it does |
