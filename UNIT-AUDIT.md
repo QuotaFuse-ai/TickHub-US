@@ -70,7 +70,10 @@
 ## 5. 切换与存量
 
 机制与 CN 完全一致（DWD append-only + `event_id` 去重 ⇒ 修正必须换 `biz_key`），
-CN 侧带 QA 实录的完整演练见 TickHub-CN 仓库 `CUTOVER-UNITS.md`。US 侧只需替换范围谓词：
+CN 侧带 QA 实录的完整演练见 TickHub-CN 仓库 `CUTOVER-UNITS.md`。演练库按 2026-10-30 13:10
+裁定确定：真值库 `financecoffer_qa_245` 只读，写操作全部落在它的私有副本
+`financecoffer_qa_249`；共享 `financecoffer_qa` 已被 QUOT-244 重建为造数库，不作真值。
+US 侧只需替换范围谓词：
 
 - 受影响数据：`provider IN ('sina','tencent','eastmoney','polygon','yahoo')` 的 quote 行，
   判据是量级而不是时间——`total_market_cap` 与 `close` 之比落在 `1e8..1e11` 的是元代，
