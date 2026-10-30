@@ -43,7 +43,7 @@
 | 字段 | 源单位 | 事件单位 | 换算 | 备注 |
 | --- | --- | --- | --- | --- |
 | `open/high/low/close` | 每股，市场货币 | 同 | 无 | `adjust="none"`，不复权 |
-| `volume` | 股 | 股 | 无 | US 侧没有「手」的口径问题 |
+| `volume` | 股 | 股 | 无 | US 侧没有「手」的口径问题；QUOT-258 定稿 CN 事件也改为股（1 手 = 100 股），两市场从此同义 |
 | `amount` | 市场货币绝对值 | 同 | 无 | 与 quote 同源 |
 
 ## 3. financial / risk
@@ -58,12 +58,14 @@
 `amount_net_profit_deducted`（扣非归母）是 A 股报表概念，US/HK 上游没有对应口径，
 因此 US 的 financial 事件**不发这个字段**，不是漏发。
 
-## 4. 已知限制（记录，不在本单修）
+## 4. 已知限制（QUOT-258 已定稿：本期不改表）
 
 1. **`dwd.stock_quote_snapshot` 没有币种列**（FinanceCoffer `db/models/dwd.py:200-234`，
-   `currency` 只存在于 `NorthboundFlow`）。US 发 USD、HK 发 HKD，仓库里都是无币种的一个数。
-   本阶段下游 `reference` 口径只承诺 A 股；US/HK 为 null + 原因码是预期行为。改表结构属于
-   FinanceCoffer，不在本单。
+   `currency` 只存在于 `NorthboundFlow`），也**没有 `market` 列**。US 发 USD、HK 发 HKD，
+   仓库里都是无币种、无市场的一个数。本期约束：三张 DWD 表的金额列只按 A 股（元）理解，
+   非 A 股行不得参与估值或跨市场比较；US/HK 的 `reference`/`snapshot` 输出 null + 原因码是
+   预期行为，不是缺陷。DWS 侧补 A 股闸（只枚举 6 位数字 symbol）。
+   扩表触发条件、受影响字段与成本见 TickHub-CN `UNIT-AUDIT.md` §9.4。
 2. **`pe` 不改名为 `pe_ttm`**：上游两个字段口径不同，猜一次就是一次静默的估值重述。
 3. **`unprobed` 厂商宁可报缺失**：刻度表按厂商取证，没取证的不继承默认值 1。
 
