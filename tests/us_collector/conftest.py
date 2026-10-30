@@ -12,8 +12,9 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from us_collector.outbox import Outbox
-from us_collector.publisher import build_event
+# 必须先插入仓库根再 import 本仓模块，故这两行不可能提到文件顶部
+from us_collector.outbox import Outbox  # noqa: E402
+from us_collector.publisher import build_event  # noqa: E402
 
 BASE_CONFIG: dict[str, Any] = {
     "symbols": ["AAPL", "MSFT"],
