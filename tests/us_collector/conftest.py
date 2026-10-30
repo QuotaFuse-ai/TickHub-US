@@ -12,8 +12,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from us_collector.outbox import Outbox
-from us_collector.publisher import build_event
+from us_collector.outbox import Outbox  # noqa: E402 - needs ROOT on sys.path first
+from us_collector.publisher import build_event  # noqa: E402 - needs ROOT on sys.path first
 
 BASE_CONFIG: dict[str, Any] = {
     "symbols": ["AAPL", "MSFT"],
