@@ -588,6 +588,24 @@ Design notes:
 
 Field definitions, failure handling and versioning: [`docs/specs/event-contract.md`](https://github.com/QuotaFuse-ai/FinanceCoffer/blob/main/docs/specs/event-contract.md).
 
+### Amount units and valuation fields (QUOT-249)
+
+The contract requires amounts in the **basic currency unit of that market** — USD for US listings, HKD for HK. `quote_us` resolves through `polygon → sina → tencent → eastmoney` (`config/sources.yaml`), and the vendors do **not** publish market cap at the same scale, so the value the warehouse saw depended on which vendor answered first:
+
+| Provider | Vendor market-cap scale (recorded 2026-10-30, AAPL) | Event value |
+| --- | --- | --- |
+| `sina` | absolute USD — `5093610331345.0` | passed through unchanged |
+| `tencent` | 亿美元 / 亿港元 — `50920.55344` | × 1e8 |
+| `eastmoney` | none in the requested field list | absent + `total_market_cap` in `missing_fields` |
+| `polygon` | not mapped out of the snapshot | absent + `total_market_cap` in `missing_fields` |
+| any other | not probed | absent + `total_market_cap_unit_unknown:provider=<name>` |
+
+A provider that is not in the table is treated as **unknown, not as scale 1** — the collector would rather publish no amount than a guessed order of magnitude. Scales are pinned by magnitude evidence (`market cap ÷ price = shares outstanding`) and per-provider fixtures, one file entry per vendor; see [`UNIT-AUDIT.md`](UNIT-AUDIT.md).
+
+`quote` events also carry `pb_mrq` — the vendor's most-recent-quarter price-to-book, the same number as `pb`, published under that name because it is the ratio the downstream `reference` basis reads. It is emitted only when strictly greater than zero; otherwise the field stays absent and `pb_mrq` appears in `quality_metrics.missing_fields`. US/HK `reference` values are expected to stay null downstream this phase (no currency column in `dwd.stock_quote_snapshot`) — that is a recorded limitation, not a defect.
+
+US `biz_key` values for `quote` end in a field-generation tag `|g2` (the unit normalisation above). `event_id` hashes only `provider|data_type|symbol|biz_key`, and the downstream DWD layer is append-only and dedupes by that id, so a corrected amount re-published under the old key would be dropped as a replay. Cutover and existing data: [`UNIT-AUDIT.md`](UNIT-AUDIT.md) §5.
+
 ## Testing and CI
 
 | Suite | Cases | Covers |

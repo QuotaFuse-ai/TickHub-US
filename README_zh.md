@@ -584,6 +584,24 @@ python -m us_collector.scheduler --config us_collector/config.yaml
 
 字段定义、失败处理与版本演进见 FinanceCoffer 仓库的 [`docs/specs/event-contract.md`](https://github.com/QuotaFuse-ai/FinanceCoffer/blob/main/docs/specs/event-contract.md)。
 
+### 金额单位与估值字段（QUOT-249）
+
+契约要求金额一律是该市场的**基本货币单位**（美股美元、港股港元）。`quote_us` 的取数链是
+`polygon → sina → tencent → eastmoney`（`config/sources.yaml`），而各家厂商的市值刻度并不一致：
+同一家公司同一天，sina 给绝对值 `5093610331345.0`，tencent 给 `50920.55344`（亿美元），
+相差正好 1e8 —— 也就是说仓库拿到的量级取决于哪家先应答。刻度在唯一换算点
+`us_collector/collector.py:market_cap_in_base_unit()` 按厂商归一；**没取证的厂商按「刻度未知」处理，
+宁可不发金额，也不猜一个刻度**，同时在 `quality_metrics.missing_fields` 里记
+`total_market_cap_unit_unknown:provider=<name>`。
+
+`quote` 事件另带 `pb_mrq`（厂商 MRQ 市净率，与 `pb` 同值，下游 `reference` 口径只认这个名字），
+仅在 **> 0** 时发布；缺失/0/负值不发，并记入 `missing_fields`。US 的 `financial` 事件不发
+`amount_net_profit_deducted`：扣非归母是 A 股报表口径，US/HK 上游没有对应字段，不是漏发。
+
+`quote` 的 `biz_key` 末尾带字段代次标记 `|g2`。原因：`event_id` 只哈希
+`provider|data_type|symbol|biz_key`，下游 DWD 按它去重且是 append-only（业务 UPDATE 被触发器拒绝），
+不带新键的修正会被当成重放丢弃。逐字段刻度审计与切换/存量处置见 [`UNIT-AUDIT.md`](UNIT-AUDIT.md)。
+
 ## 测试与 CI
 
 | 套件 | 用例 | 说明 |

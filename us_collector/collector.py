@@ -27,7 +27,7 @@ import math
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, AsyncIterator, Iterable, Protocol
 from zoneinfo import ZoneInfo
 
@@ -186,6 +186,53 @@ def num_str(value: Any) -> str | None:
         return format(value, "f")
     text = str(value).strip()
     return text or None
+
+
+# 事件里的金额一律是基本货币单位（契约 event-contract.md §3.4），但各厂商市值的
+# 刻度不一样，且没有任何字段能把它「看出来」——同一个 AAPL，腾讯给 50920.55344，
+# 新浪给 5092055344000，相差正好 1e8。刻度按厂商取证的量级关系定：市值 ÷ 股价 =
+# 股本数，只有正确刻度才能得到 AAPL 的 ~1.46e10 股（见 UNIT-AUDIT.md）。
+#
+# 没在表里的厂商是「未取证」，不是「单位为 1」：宁可报缺失，也不猜一个刻度把
+# 错量级的数字送进仓库。这里也是整条 US 链路唯一的换算点。
+_YI = Decimal("100000000")
+_MARKET_CAP_SCALE: dict[str, Decimal] = {
+    "sina": Decimal(1),  # 美股市值：美元绝对值
+    "tencent": _YI,  # 美股「亿美元」/ 港股「亿港元」：亿 × 该市场货币
+}
+_MARKET_CAP_QUANTUM = Decimal("0.0001")
+
+#: ``event_id = sha256(provider|data_type|symbol|biz_key)`` 不含内容，FinanceCoffer
+#: 分不出「改了单位的同一件事」和「重复投递」，只按 event_id 去重。quote 的
+#: biz_key 因此带上字段代次，修正后的市值才能作为新的 DWD version 落库，而不是
+#: 被当成重放丢掉。只有单位/口径变了才动它：随手改会让所有历史日期重推一遍。
+_GENERATION = "g2"
+
+
+def market_cap_in_base_unit(value: Any, provider: str) -> tuple[str | None, str | None]:
+    """把厂商市值归到该市场的基本货币单位；返回 (金额, 缺失原因)。"""
+    amount = num_str(value)
+    if amount is None:
+        return None, None
+    scale = _MARKET_CAP_SCALE.get(provider.strip().lower())
+    if scale is None:
+        return None, f"total_market_cap_unit_unknown:provider={provider or 'missing'}"
+    try:
+        scaled = (Decimal(amount) * scale).quantize(_MARKET_CAP_QUANTUM)
+    except (InvalidOperation, ValueError):  # 非数字的厂商原值不当金额上行
+        return None, "total_market_cap_not_a_number"
+    return format(scaled, "f"), None
+
+
+def _positive_ratio(value: Any) -> str | None:
+    """比率字段里只有严格大于 0 的值能被下游当分母；缺失/0/负值一律当作没有。"""
+    text = num_str(value)
+    if text is None:
+        return None
+    try:
+        return text if Decimal(text) > 0 else None
+    except InvalidOperation:
+        return None
 
 
 def _to_et(value: Any) -> datetime | None:
@@ -444,16 +491,26 @@ class Collector:
             "market": payload.get("market"),
             "ts": str(stamp) if stamp else None,
         }
-        market_cap = _first(payload.get("total_market_cap"), payload.get("market_cap"))
-        fields["total_market_cap"] = num_str(market_cap)
+        market_cap, cap_reason = market_cap_in_base_unit(
+            _first(payload.get("total_market_cap"), payload.get("market_cap")),
+            str(envelope.get("source") or ""),
+        )
+        fields["total_market_cap"] = market_cap
         pe_ttm = payload.get("pe_ttm")
         fields["pe_ttm"] = num_str(pe_ttm)
         if pe_ttm is None and payload.get("pe") is not None:
             # 不把上游 pe 改名成 pe_ttm：口径未确认，原样保留并标注缺失。
             fields["pe"] = num_str(payload.get("pe"))
+        # pb_mrq 是厂商最新报告的市净率原值，与 pb 同数；下游 reference 口径只认
+        # pb_mrq 这个名字。厂商没给可用的 pb（缺失/0/负值）时不补也不猜。
+        pb_mrq = _positive_ratio(payload.get("pb"))
+        if pb_mrq is not None:
+            fields["pb_mrq"] = pb_mrq
 
-        missing = [name for name in ("total_market_cap", "pe_ttm") if fields.get(name) is None]
-        biz_key = f"{day}|{stamp or event_time(stamp, fallback=envelope.get('fetched_at'))}"
+        missing = [name for name in ("total_market_cap", "pe_ttm", "pb_mrq") if fields.get(name) is None]
+        if cap_reason:
+            missing.append(cap_reason)
+        biz_key = f"{day}|{stamp or event_time(stamp, fallback=envelope.get('fetched_at'))}|{_GENERATION}"
         self._result.events.append(
             self._make_event(
                 envelope,

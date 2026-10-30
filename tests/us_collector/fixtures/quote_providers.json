@@ -1,0 +1,63 @@
+{
+  "_note": "Recorded 2026-10-30 from the live quote_us chain (polygon -> sina -> tencent -> eastmoney), one symbol AAPL, using the provider parsers in src/tickhub_us/providers. Only the fields the collector consumes are kept. The vendor market-cap scale is the reason this file exists: sina answers an absolute USD figure while tencent answers 亿美元 for the same company on the same day.",
+  "captured_at": "2026-10-30T21:35:00+08:00",
+  "symbol": "AAPL",
+  "providers": {
+    "sina": {
+      "price": 348.91,
+      "prev_close": 347.50,
+      "volume": 48123456,
+      "currency": "USD",
+      "market_cap": 5093610331345.0,
+      "pe": 42.04,
+      "pb": null,
+      "timestamp": "2026-10-30T16:15:00",
+      "source_unit": "USD (absolute)"
+    },
+    "tencent": {
+      "price": 348.91,
+      "prev_close": 347.50,
+      "volume": 48123456,
+      "currency": "USD",
+      "market_cap": 50920.55344,
+      "float_market_cap": 50888.90339,
+      "pe": 40.01,
+      "pb": 47.36,
+      "timestamp": "2026-10-30T16:15:00",
+      "source_unit": "亿美元 (1e8 USD)"
+    },
+    "eastmoney": {
+      "price": 348.91,
+      "prev_close": 347.50,
+      "volume": 48123456,
+      "currency": "USD",
+      "market_cap": null,
+      "pe": null,
+      "pb": null,
+      "timestamp": "2026-10-30T16:15:00",
+      "source_unit": "no market cap in the requested field list"
+    },
+    "polygon": {
+      "price": 348.91,
+      "prev_close": 347.50,
+      "volume": 48123456,
+      "currency": "USD",
+      "market_cap": null,
+      "pe": null,
+      "pb": null,
+      "timestamp": "2026-10-30T16:15:00",
+      "source_unit": "not mapped out of the snapshot by the provider parser"
+    },
+    "unprobed": {
+      "price": 348.91,
+      "prev_close": 347.50,
+      "volume": 48123456,
+      "currency": "USD",
+      "market_cap": 50920.55344,
+      "pe": null,
+      "pb": null,
+      "timestamp": "2026-10-30T16:15:00",
+      "source_unit": "deliberately unknown scale: a new vendor must not inherit a guess"
+    }
+  }
+}
