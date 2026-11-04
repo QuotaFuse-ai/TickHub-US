@@ -33,3 +33,6 @@ var/
 # Local scratch
 .scratch/
 _p*.log
+
+# QUOT-401: 最小包产物
+dist-build/

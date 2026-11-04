@@ -544,7 +544,19 @@ MCP_HTTP_ALLOWED_HOSTS=tickhub.internal:8001 \
 th-us mcp http
 ```
 
-<a id="financecoffer-events"></a>
+## MCP 打包与版本（自查）
+
+版本单一真源是 `pyproject.toml` 的 `[project] version`，运行期 `__version__` 从安装元数据读（未安装源码树时为 `0.0.0+source`）。`/healthz` 按 SEC-12 **只回存活**，不含版本——同机部署的下游直接读 venv 的 `tickhub_us-*.dist-info` 判断版本。
+
+```bash
+PYTHON=.venv/Scripts/python.exe bash scripts/build-release.sh
+# 产出 dist-build/tickhub_us-<version>-py3-none-any.whl 与 dist-build/SHA256SUMS
+
+python -c "import tickhub_us; print(tickhub_us.__version__)"   # 跑的是哪一版
+curl -s http://127.0.0.1:8002/healthz                           # {"status":"ok"}
+```
+
+对端 venv 只允许 `pip install -e .` 或装 wheel，**切分支后必须重新 `pip install -e .`**，不要把源码拷进 `site-packages`——详见 `docs/runbook-peer.md`。
 
 ## 与 FinanceCoffer 的数据交互
 
