@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tickhub-us"
-version = "1.0.0"
+version = "1.1.0"
 description = "TickHub-US (US/HK market data engine for AI agents): MCP server, th-us CLI and typed DataEnvelope"
 readme = "README.md"
 requires-python = ">=3.11"

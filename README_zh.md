@@ -75,7 +75,7 @@
 ## 架构
 
 ```
-TickHub-US · MCP Server + CLI · v1.0.0
+TickHub-US · MCP Server + CLI · v1.1.0
 │
 ├── 接入层      MCP stdio / Streamable HTTP（41 个工具） + th-us CLI（10 组命令）
 │              ↳ 入口强制 commercial_use，缺失即 ComplianceError
@@ -135,7 +135,7 @@ TickHub-US · MCP Server + CLI · v1.0.0
 **3 步，2 分钟。**
 
 ```bash
-# 1. 安装（PyPI 1.0.0，2026-10-26 已发布）
+# 1. 安装（PyPI 1.1.0，2026-11-04 已发布）
 pip install tickhub-us
 # 或从源码
 git clone https://github.com/QuotaFuse-ai/TickHub-US.git

@@ -5,6 +5,31 @@ section at the top: date · version · what changed · impact. No design essays,
 local machine setup, internal addresses, ticket numbers or third-party repo
 comparisons. Install and usage live in README.
 
+## 2026-11-04 · 1.1.0 — single source of truth for the version, first GitHub Release
+
+- **The version is no longer written twice.** `pyproject.toml` `[project] version`
+  is the only source; `tickhub_us.__version__` now reads it from the installed
+  metadata (`importlib.metadata`), falling back to `0.0.0+source` when the package
+  is not installed. Previously `__init__.py` hard-coded `1.0.0` while
+  `pyproject.toml` said the same thing in a second place, so bumping one and
+  missing the other made the wheel metadata and the runtime disagree.
+- **`/healthz` keeps reporting only `status`.** This is deliberate (SEC-12): the
+  anonymous probe must not expose the version or the tool count, or the
+  fingerprint and the counters become a probe contract. Downstream consumers on
+  the same host read the version from the installed `dist-info` metadata instead.
+- **First GitHub Release.** The README claimed that "GitHub Release assets" was one
+  of four live distribution channels, but this repository had **zero** releases —
+  only the `v1.0.0` tag existed. That claim is now true rather than aspirational:
+  every `v*` tag from here on ships `tickhub_us-<ver>-py3-none-any.whl` plus
+  `SHA256SUMS` as release assets.
+- Version `1.0.0 → 1.1.0` (minor): 24 commits have landed since `v1.0.0`, adding
+  the out-of-process MCP collection sidecar, the `th-us-collector` console entry,
+  vendored market caps normalised to the base currency unit, `pb_mrq`, and CI
+  gate alignment. Existing tool names, field names and units are unchanged.
+- Docs: the version banner and the `pip install` example in `README.md` /
+  `README_zh.md` follow `1.1.0`; the "channels are live as of" sentence was moved
+  from `v1.0.0` to `v1.1.0`, where it is actually true.
+
 ## 2026-10-30 · Quote amounts normalised, `pb_mrq` added (QUOT-249)
 
 - `quote` events now publish `total_market_cap` in the basic currency unit of the

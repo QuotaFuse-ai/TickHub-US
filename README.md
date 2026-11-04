@@ -75,7 +75,7 @@ One sentence: **direct API calls give you freedom, aggregation libraries give yo
 ## Architecture
 
 ```
-TickHub-US · MCP Server + CLI · v1.0.0
+TickHub-US · MCP Server + CLI · v1.1.0
 │
 ├── Access       MCP stdio / Streamable HTTP (41 tools) + th-us CLI (10 command groups)
 │                ↳ commercial_use is mandatory at the entry point; missing → ComplianceError
@@ -136,7 +136,7 @@ Distribution name `tickhub-us` · Python package `tickhub_us` · CLI `th-us`. Re
 **3 steps, 2 minutes.**
 
 ```bash
-# 1. Install (PyPI 1.0.0, published 2026-10-26)
+# 1. Install (PyPI 1.1.0, published 2026-11-04)
 pip install tickhub-us
 # or from a checkout
 git clone https://github.com/QuotaFuse-ai/TickHub-US.git
@@ -188,7 +188,7 @@ Look at `compliance_tier` and `warnings`: this row came from Sina, a tier-C sour
 
 ### One-click install
 
-Four distribution channels, one code base — PyPI wheel / sdist, GitHub Release assets, GHCR container image, and source install. All three published channels are live as of v1.0.0. See [Publishing](#publishing).
+Four distribution channels, one code base — PyPI wheel / sdist, GitHub Release assets, GHCR container image, and source install. All three published channels are live as of v1.1.0. See [Publishing](#publishing).
 
 ```bash
 # PyPI
@@ -692,7 +692,7 @@ Dockerfile              image (non-root, stdio by default)
 
 **Can I use it without an MCP client?** Yes. The `th-us` CLI covers every endpoint, and `--output json` feeds any script directly.
 
-**Can I install it from PyPI? Is there a Docker image?** Yes to both. `pip install tickhub-us` installs 1.0.0 ([PyPI](https://pypi.org/project/tickhub-us/)), the same wheel / sdist ship as [v1.0.0 release assets](https://github.com/QuotaFuse-ai/TickHub-US/releases/tag/v1.0.0), and the container is public at `ghcr.io/quotafuse-ai/tickhub-us` (tags `1.0.0` and `latest`, `docker pull` needs no login). Publishing is a single manual dispatch of `publish.yml` / `docker.yml`; steps are in [Publishing](#publishing).
+**Can I install it from PyPI? Is there a Docker image?** Yes to both. `pip install tickhub-us` installs 1.1.0 ([PyPI](https://pypi.org/project/tickhub-us/)), the same wheel / sdist ship as [v1.0.0 release assets](https://github.com/QuotaFuse-ai/TickHub-US/releases/tag/v1.0.0), and the container is public at `ghcr.io/quotafuse-ai/tickhub-us` (tags `1.0.0` and `latest`, `docker pull` needs no login). Publishing is a single manual dispatch of `publish.yml` / `docker.yml`; steps are in [Publishing](#publishing).
 
 ## Version
 
