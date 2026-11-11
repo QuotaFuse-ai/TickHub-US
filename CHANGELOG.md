@@ -5,6 +5,25 @@ section at the top: date · version · what changed · impact. No design essays,
 local machine setup, internal addresses, ticket numbers or third-party repo
 comparisons. Install and usage live in README.
 
+## 2026-11-11 · HK index quotes: `HSI` / `HSTECH` resolve through `quote_hk`
+
+- **HK index symbols are now first-class `quote_hk` inputs.** `core/ticker.py`
+  gains an alias table (`HSI`, `HSTECH`; bare, `^`-prefixed and `.HK`-suffixed
+  forms all normalise to `HSI.HK` / `HSTECH.HK`), intercepted before the US
+  pattern so `.HK` is never mistaken for a US class-share suffix. Previously
+  every index spelling fell into the numeric stock branch and failed with
+  `invalid literal for int()`.
+- **tencent / sina providers quote HK indices with no new dependencies and no
+  key.** The `quote_hk` branch maps index codes to `r_hkHSI` / `rt_hkHSI`
+  (field-count thresholds unchanged: 76 / 15; index payloads measure 78 / 25).
+  eastmoney's secid map only covers numeric stock codes, so it now raises
+  `DataNotAvailable` explicitly for HK indices instead of guessing.
+- Impact: `th_us_get_quote {"symbol": "HSI.HK", "commercial_use": false}`
+  returns price / prev_close / change / change_pct in HKD from the free public
+  tencent→sina chain (Tier C, non-commercial). HK stock quotes (`0700.HK`)
+  and US quotes are unchanged; covered by recorded-payload contract tests and
+  live smoke tests.
+
 ## 2026-11-04 · 1.1.0 — single source of truth for the version, first GitHub Release
 
 - **The version is no longer written twice.** `pyproject.toml` `[project] version`
