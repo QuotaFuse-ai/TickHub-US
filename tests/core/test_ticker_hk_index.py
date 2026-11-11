@@ -20,7 +20,6 @@ from tickhub_us.core.errors import BadRequest, DataNotAvailable
 from tickhub_us.providers import sina as sina_mod
 from tickhub_us.providers import tencent as tencent_mod
 
-
 # --------------------------------------------------------------------------- #
 # 纯函数：normalize / market_of / 代码转换
 # --------------------------------------------------------------------------- #
