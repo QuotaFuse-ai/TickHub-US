@@ -12,7 +12,7 @@ from typing import Any
 
 from ..core.errors import DataNotAvailable
 from ..core.http import get_http_client
-from ..core.ticker import currency_of, hk_code, market_of, normalize, to_sina
+from ..core.ticker import currency_of, hk_display_code, market_of, normalize, to_sina
 from ._util import check_range, clean_timestamp, fnum, quote_payload
 from .base import BaseProvider, build_spec, register
 
@@ -101,6 +101,7 @@ class SinaProvider(BaseProvider):
         if market_of(sym) != "HK":
             raise DataNotAvailable(f"{sym} 不是港股")
         fields = self._raw(to_sina(sym))
+        # 指数行（rt_hkHSI）实测 25 段，布局与个股一致（2026-11-11），15 段门槛不用放宽
         if len(fields) < 15:
             raise DataNotAvailable(f"新浪港股字段不足（{len(fields)}），无法解析 {sym}")
 
@@ -111,7 +112,7 @@ class SinaProvider(BaseProvider):
         return quote_payload(
             symbol=sym,
             market="HK",
-            code=f"{int(hk_code(sym)):05d}",
+            code=hk_display_code(sym),
             name=fields[1] or None,
             name_en=fields[0] or None,
             price=fnum(fields[6]),

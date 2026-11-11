@@ -21,7 +21,7 @@ from typing import Any
 from ..core.errors import BadRequest, DataNotAvailable
 from ..core.http import get_http_client
 from ..core.log import get_logger
-from ..core.ticker import currency_of, hk_code, market_of, normalize
+from ..core.ticker import currency_of, hk_code, is_hk_index, market_of, normalize
 from ._util import clean_timestamp, fnum, inum, quote_payload
 from .base import BaseProvider, build_spec, register
 
@@ -123,6 +123,10 @@ def _resolve(symbol: str) -> _Ids:
         return cached
 
     if sym.endswith(".HK"):
+        if is_hk_index(sym):
+            # 116.xxxxx 只映射数字个股代码；港股指数走 tencent/sina（QUOT-560），
+            # 这里如实报无数据，让降级链汇总原因，而不是抛 ValueError
+            raise DataNotAvailable(f"东方财富暂不支持港股指数 {sym}（secid 只映射数字个股代码）")
         code = f"{int(hk_code(sym)):05d}"
         ids = _Ids(secid=f"116.{code}", secucode=f"{code}.HK", market="HK")
     else:

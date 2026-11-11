@@ -55,6 +55,23 @@ def test_live_hk_quote_returns_envelope() -> None:
     assert env["payload"].get("price")
 
 
+@pytest.mark.parametrize("symbol", ["HSI", "HSTECH"])
+def test_live_hk_index_quote_returns_envelope(symbol: str) -> None:
+    """QUOT-560：港股指数走 tencent/sina 免费公开源，四件套齐备、零 key。"""
+    env = quote(symbol, commercial_use=False, use_cache=False)
+    assert ENVELOPE_KEYS <= set(env)
+    assert env["symbol"] == f"{symbol}.HK"
+    assert env["domain"] == "quote_hk"
+    assert env["source"] in {"tencent", "sina"}
+    assert env["compliance_tier"] == "C"
+    payload = env["payload"]
+    assert payload.get("price")
+    assert payload.get("prev_close")
+    assert payload.get("change") is not None
+    assert payload.get("change_pct") is not None
+    assert payload.get("currency") == "HKD"
+
+
 def test_live_filings_returns_10k() -> None:
     from tickhub_us.filings.service import filings
 

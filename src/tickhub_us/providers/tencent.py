@@ -10,7 +10,7 @@ from typing import Any
 
 from ..core.errors import DataNotAvailable
 from ..core.http import get_http_client
-from ..core.ticker import currency_of, hk_code, market_of, normalize, to_tencent
+from ..core.ticker import currency_of, hk_display_code, market_of, normalize, to_tencent
 from ._util import clean_timestamp, fnum, quote_payload
 from .base import BaseProvider, build_spec, register
 
@@ -66,11 +66,12 @@ class TencentProvider(BaseProvider):
         sym = normalize(symbol or "")
         if market_of(sym) != "HK":
             raise DataNotAvailable(f"{sym} 不是港股")
+        # 指数行（r_hkHSI）实测 78 段，布局与个股一致（2026-11-11），76 段门槛不用放宽
         f = self._fields(sym, 76)
         return quote_payload(
             symbol=sym,
             market="HK",
-            code=f[2] or f"{int(hk_code(sym)):05d}",
+            code=f[2] or hk_display_code(sym),
             name=f[1] or None,
             name_en=f[46] or None,
             price=fnum(f[3]),
