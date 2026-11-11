@@ -12,7 +12,7 @@ from typing import Any
 
 from ..core.errors import DataNotAvailable
 from ..core.http import get_http_client
-from ..core.ticker import currency_of, hk_code, market_of, normalize, to_sina
+from ..core.ticker import currency_of, hk_quote_code, market_of, normalize, to_sina
 from ._util import check_range, clean_timestamp, fnum, quote_payload
 from .base import BaseProvider, build_spec, register
 
@@ -111,7 +111,7 @@ class SinaProvider(BaseProvider):
         return quote_payload(
             symbol=sym,
             market="HK",
-            code=f"{int(hk_code(sym)):05d}",
+            code=hk_quote_code(sym),
             name=fields[1] or None,
             name_en=fields[0] or None,
             price=fnum(fields[6]),

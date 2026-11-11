@@ -10,7 +10,7 @@ from typing import Any
 
 from ..core.errors import DataNotAvailable
 from ..core.http import get_http_client
-from ..core.ticker import currency_of, hk_code, market_of, normalize, to_tencent
+from ..core.ticker import currency_of, hk_quote_code, market_of, normalize, to_tencent
 from ._util import clean_timestamp, fnum, quote_payload
 from .base import BaseProvider, build_spec, register
 
@@ -70,7 +70,7 @@ class TencentProvider(BaseProvider):
         return quote_payload(
             symbol=sym,
             market="HK",
-            code=f[2] or f"{int(hk_code(sym)):05d}",
+            code=f[2] or hk_quote_code(sym),
             name=f[1] or None,
             name_en=f[46] or None,
             price=fnum(f[3]),
